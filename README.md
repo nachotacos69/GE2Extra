@@ -23,7 +23,7 @@ No Repack supported due to complexity
 ## Extraction Methods:
 ~ Base Game: (uses `package.rdp, data.rdp, system.res`)
 
-~ DLC: (uses `package.rdp, data.rdp, patch.res, system_update.res`)
+~ DLC: (uses `package.rdp, data.rdp, patch.rdp, system_update.res`)
 
 
 #### Base game files are required for extraction since the dlc uses a few important things in them.
