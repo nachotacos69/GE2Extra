@@ -3,10 +3,10 @@
 
 ~ Supports: 1.30 - 1.40 Versions (atleast on my testings with bugs/errors along the way).
 
-~ This tool is mostly and represents extracting many files as possible within their contents
-No Repack supported due to complexity
+~ This tool is mostly represents extracting many files as possible within the given input, though there's some errors like a 'Stream' error but it'll do for now atleast. And there will be No Repack support due to complexity.
 
-~ I made this for fun and feel free to modify for your own desires.
+~ I made this for fun and feel free to modify the code for your own desires.
+
 
 ### Sources:
 
