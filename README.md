@@ -1,2 +1,29 @@
 # GE2Extra
-GOD EATER 2 Extraction Tool (No Repack
+### GOD EATER 2 Extraction Tool (No Repack)
+
+~ Supports: 1.30 - 1.40 Versions (atleast on my testings with bugs/errors along the way)
+This tool is mostly and represents extracting many files as possible within their contents
+No Repack supported due to complexity
+
+~ I made this for fun and feel free to modify for your own desires.
+
+### Sources:
+
+~ BLZ2Utils by HaoJun: https://github.com/haoJun0823/GECV-OLD/
+
+~ Extraction Codes Originally by SkyBladeCloud (original codes in `src`): https://gbatemp.net/members/skybladecloud.264289/
+
+## Required Files:
+- package.rdp
+- data.rdp
+- system.res (for base game)
+- patch.rdp (for dlc) [rename `patch.edat` to this]
+- system_update.res (for dlc) [rename `system_update.edat` to this]
+
+## Extraction Methods:
+~ Base Game: (uses `package.rdp, data.rdp, system.res`)
+
+~ DLC: (uses `package.rdp, data.rdp, patch.res, system_update.res`)
+
+
+#### Base game files are required for extraction since the dlc uses a few important things in them.

@@ -1,0 +1,60 @@
+
+using System.IO;
+
+namespace GE2
+{
+    class FileEntry
+    {
+        enum AddressMode
+        {
+            Package = 0x4,
+            Data = 0x5
+        };
+        int dataSector;
+        AddressMode addressMode;
+        int compressedSize;
+        int infoOffset;
+        int infoCount;
+        byte[] zeroes;
+        public int decompressedSize;
+
+        FileInfo info;
+        FileData data;
+
+        public FileEntry(BinaryReader reader)
+        {
+            int datum = reader.ReadInt32();
+            dataSector = datum & 0x0fffffff;
+            addressMode = (AddressMode)((datum & 0xf0000000) >> 28);
+            compressedSize = reader.ReadInt32();
+            infoOffset = reader.ReadInt32();
+            infoCount = reader.ReadInt32();
+            zeroes = reader.ReadBytes(0x0C);
+            decompressedSize = reader.ReadInt32();
+
+            if(datum == 0) return;
+
+            long currentOffset = reader.BaseStream.Position;
+            reader.BaseStream.Position = infoOffset;
+            info = new FileInfo(reader, infoCount);
+
+            int dataOffset;
+            BinaryReader dataReader;
+            switch(addressMode)
+            {
+                case AddressMode.Package: dataOffset = dataSector * 0x800; dataReader = Program.package; break;
+                case AddressMode.Data: dataOffset = dataSector * 0x800; dataReader = Program.data; break;
+                default: dataOffset = dataSector; dataReader = reader; break;
+            }
+            dataReader.BaseStream.Position = dataOffset;
+            data = new FileData(dataReader, compressedSize, decompressedSize, info.getName(), info.getType());
+            reader.BaseStream.Position = currentOffset;
+        }
+
+        public void extract(string outDirectory)
+        {
+            if(data != null)
+                data.extract(outDirectory);
+        }
+    }
+}

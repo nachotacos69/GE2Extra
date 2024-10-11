@@ -1,0 +1,74 @@
+
+using System;
+using System.IO;
+
+namespace GE2
+{
+    class FileData
+    {
+        string fileName;
+        string fileType;
+        string fullName;
+
+        BinaryReader binaryReader;
+        long offset;
+        int size;
+        int decSize;
+
+        public FileData(BinaryReader reader, int compressedSize, int decompressedSize, string name, string type)
+        {
+            fileName = name;
+            fileType = type;
+            fullName = fileName;
+
+            if(fileType != "") fullName += '.' + fileType;
+
+            binaryReader = reader;
+            offset = binaryReader.BaseStream.Position;
+            size = compressedSize;
+            decSize = decompressedSize;
+        }
+
+        public void extract(string outDirectory)
+        {
+            Console.WriteLine("Processing File: " + fullName);
+            binaryReader.BaseStream.Position = offset;
+            byte[] data = binaryReader.ReadBytes(size);
+
+            if(decSize != 0 && size != 0 && size < decSize)
+            {
+                data = BLZ2.decompress(data);
+                if(data.Length != decSize) throw new Exception("Error in decompression?");
+            }
+
+            switch(fileType)
+            {
+                case "res":
+                {
+                    Directory.CreateDirectory(outDirectory + '/' + fullName);
+                    Pres extracted = new Pres(data);
+                    extracted.extract(outDirectory + '/' + fullName);
+                    break;
+                }
+                case "tr2":
+                {
+                    try
+                    {
+                        TR2 tr2 = new TR2(data);
+                        StreamWriter writer = new StreamWriter(outDirectory + '/' + fullName + ".txt");
+                        tr2.extract(writer);
+                        writer.Flush();
+                        writer.Close();
+                    }
+                    catch(Exception) { }
+                    goto default;
+                }
+                default:
+                {
+                    File.WriteAllBytes(outDirectory + '/' + fullName, data);
+                    break;
+                }
+            }
+        }
+    }
+}
