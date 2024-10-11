@@ -1,8 +1,9 @@
 # GE2Extra
-### GOD EATER 2 Extraction Tool (No Repack)
+### GOD EATER 2 [NPJH50832] Extraction Tool (No Repack)
 
-~ Supports: 1.30 - 1.40 Versions (atleast on my testings with bugs/errors along the way)
-This tool is mostly and represents extracting many files as possible within their contents
+~ Supports: 1.30 - 1.40 Versions (atleast on my testings with bugs/errors along the way).
+
+~ This tool is mostly and represents extracting many files as possible within their contents
 No Repack supported due to complexity
 
 ~ I made this for fun and feel free to modify for your own desires.
@@ -13,7 +14,7 @@ No Repack supported due to complexity
 
 ~ Extraction Codes Originally by SkyBladeCloud (original codes in `src`): https://gbatemp.net/members/skybladecloud.264289/
 
-## Required Files:
+## Required Files (same directory as the executable):
 - package.rdp
 - data.rdp
 - system.res (for base game)
