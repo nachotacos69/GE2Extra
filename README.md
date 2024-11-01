@@ -1,4 +1,5 @@
 # GE2Extra
+
 ### GOD EATER 2 [NPJH50832] Extraction Tool (No Repack)
 
 ~ Supports: 1.30 - 1.40 Versions (atleast on my testings with bugs/errors along the way).
@@ -28,3 +29,7 @@
 
 
 #### Base game files are required for extraction since the dlc uses a few important things in them.
+
+#### Changelog
+**1.0**
+- Release
