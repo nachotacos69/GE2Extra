@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-
+using System.Text;
 namespace GE2
 {
     class Program
@@ -15,42 +15,50 @@ namespace GE2
 
         static void Main(string[] args)
         {
-            try
+            // Create a StreamWriter to write output to a text file
+            using (StreamWriter writer = new StreamWriter("output_text.txt"))
             {
-                // Prompt user to select base game or DLC mode
-                Console.WriteLine("==Select extraction mode==\n[1] Base Game\n[2] DLC\n[3] OffShot (PSVita only -bugged but can extract certain files-)");
-                string selection = Console.ReadLine();
+                // Redirect console output to both the console and the file
+                Console.SetOut(new MultiTextWriter(Console.Out, writer));
+                Console.SetError(new MultiTextWriter(Console.Error, writer)); // Capture error output as well
 
-                if (selection == "1")
+                try
                 {
-                    ExtractBaseGame();
-                }
-                else if (selection == "2")
-                {
-                    ExtractDLC();
-                }
-                else if (selection == "3")
-                {
-                    OffShot();
-                }
-                else
-                {
-                    Console.WriteLine("Invalid selection.");
-                }
+                    // Prompt user to select base game or DLC mode
+                    Console.WriteLine("==Select extraction mode==\n[1] Base Game\n[2] DLC\n[3] OffShot (PSVita only -bugged but can extract certain files-)");
+                    string selection = Console.ReadLine();
 
-                // Output total number of extracted files
-                Console.WriteLine($"\nExtraction completed successfully! Total files extracted: {totalExtractedFiles}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error occurred: {ex.Message}");
-            }
-            finally
-            {
-                // Close the BinaryReaders
-                if (package != null) package.Close();
-                if (data != null) data.Close();
-                if (patch != null) patch.Close(); // Ensure patch reader is closed
+                    if (selection == "1")
+                    {
+                        ExtractBaseGame();
+                    }
+                    else if (selection == "2")
+                    {
+                        ExtractDLC();
+                    }
+                    else if (selection == "3")
+                    {
+                        OffShot();
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid selection.");
+                    }
+
+                    // Output total number of extracted files
+                    Console.WriteLine($"\nExtraction completed successfully! Total files extracted: {totalExtractedFiles}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An error occurred: {ex.Message}");
+                }
+                finally
+                {
+                    // Close the BinaryReaders
+                    if (package != null) package.Close();
+                    if (data != null) data.Close();
+                    if (patch != null) patch.Close(); // Ensure patch reader is closed
+                }
             }
         }
 
@@ -103,12 +111,13 @@ namespace GE2
             string outDirectory = "DLC"; // Output folder for DLC extraction
             systemUpdateRes.extract(outDirectory);
         }
+
         static void OffShot()
         {
             string packageFile = "package.rdp";
             string systemOffshotFile = "system.res";
 
-            // Check if required DLC files exist
+            // Check if required OffShot files exist
             if (!File.Exists(packageFile) || !File.Exists(systemOffshotFile))
             {
                 Console.WriteLine("Offshot files missing. Ensure package.rdp, and system.res are present.");
@@ -117,13 +126,45 @@ namespace GE2
 
             // Open the package
             package = new BinaryReader(File.OpenRead(packageFile));
-            
 
             // Process the system.res file to extract
             Console.WriteLine("Processing system.res...");
             Pres systemOffshotRes = new Pres(systemOffshotFile);
-            string outDirectory = "Offshot"; // static folder for extraction
+            string outDirectory = "Offshot"; // Output folder for OffShot extraction
             systemOffshotRes.extract(outDirectory);
+        }
+    }
+
+    // Helper class to redirect console output to both console and file
+    public class MultiTextWriter : TextWriter
+    {
+        private readonly TextWriter consoleWriter;
+        private readonly TextWriter fileWriter;
+
+        public MultiTextWriter(TextWriter consoleWriter, TextWriter fileWriter)
+        {
+            this.consoleWriter = consoleWriter;
+            this.fileWriter = fileWriter;
+        }
+
+        public override Encoding Encoding => consoleWriter.Encoding;
+
+        public override void Write(char value)
+        {
+            consoleWriter.Write(value);
+            fileWriter.Write(value);
+        }
+
+        public override void WriteLine(string value)
+        {
+            consoleWriter.WriteLine(value);
+            fileWriter.WriteLine(value);
+        }
+
+        public override void Flush()
+        {
+            consoleWriter.Flush();
+            fileWriter.Flush();
         }
     }
 }
