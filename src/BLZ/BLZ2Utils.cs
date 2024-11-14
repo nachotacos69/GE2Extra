@@ -9,7 +9,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace GE2
+namespace PRES_AREA.BLZ2
 {
     public static class BLZ2Utils
     {
@@ -87,8 +87,8 @@ namespace GE2
                     }
                     else
                     {
-                        // Assuming BLZ4Utils.SplitBytes is replaced with a method to split the data
-                        var splitData = SplitBytes(fileData, 0xff); // Replace SplitBytes method if needed
+                        
+                        var splitData = SplitBytes(fileData, 0xff); 
                         byte[] compress;
 
                         if (splitData.Count > 1)

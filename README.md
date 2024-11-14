@@ -33,3 +33,7 @@
 #### Changelog
 **1.0**
 - Release
+
+**1.1**
+- Added Offshot Support for extraction (really buggy but some tr2 files are readable)
+- Added BLZ4

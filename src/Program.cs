@@ -18,7 +18,7 @@ namespace GE2
             try
             {
                 // Prompt user to select base game or DLC mode
-                Console.WriteLine("Select extraction mode: [1] Base Game, [2] DLC");
+                Console.WriteLine("==Select extraction mode==\n[1] Base Game\n[2] DLC\n[3] OffShot (PSVita only -bugged but can extract certain files-)");
                 string selection = Console.ReadLine();
 
                 if (selection == "1")
@@ -28,6 +28,10 @@ namespace GE2
                 else if (selection == "2")
                 {
                     ExtractDLC();
+                }
+                else if (selection == "3")
+                {
+                    OffShot();
                 }
                 else
                 {
@@ -98,6 +102,28 @@ namespace GE2
             Pres systemUpdateRes = new Pres(systemUpdateFile);
             string outDirectory = "DLC"; // Output folder for DLC extraction
             systemUpdateRes.extract(outDirectory);
+        }
+        static void OffShot()
+        {
+            string packageFile = "package.rdp";
+            string systemOffshotFile = "system.res";
+
+            // Check if required DLC files exist
+            if (!File.Exists(packageFile) || !File.Exists(systemOffshotFile))
+            {
+                Console.WriteLine("Offshot files missing. Ensure package.rdp, and system.res are present.");
+                return;
+            }
+
+            // Open the package
+            package = new BinaryReader(File.OpenRead(packageFile));
+            
+
+            // Process the system.res file to extract
+            Console.WriteLine("Processing system.res...");
+            Pres systemOffshotRes = new Pres(systemOffshotFile);
+            string outDirectory = "Offshot"; // static folder for extraction
+            systemOffshotRes.extract(outDirectory);
         }
     }
 }
