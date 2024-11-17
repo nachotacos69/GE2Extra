@@ -11,7 +11,7 @@
 
 ### Sources:
 
-~ BLZ2Utils by HaoJun: https://github.com/haoJun0823/GECV-OLD/
+~ BLZ2 + BLZ4 Codes by HaoJun: https://github.com/haoJun0823/GECV-OLD/
 
 ~ Extraction Codes Originally by SkyBladeCloud (original codes in `src`): https://gbatemp.net/members/skybladecloud.264289/
 
