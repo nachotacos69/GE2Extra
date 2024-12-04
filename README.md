@@ -1,4 +1,4 @@
-# GE2Extra
+# GE2Extra (Python Variant)
 
 ### GOD EATER 2 [NPJH50832] Extraction Tool (No Repack)
 
@@ -8,10 +8,12 @@
 
 ~ I made this for fun and feel free to modify the code for your own desires.
 
+~ This is a Python Version, i suck at python and will probably be suck bad at it by the way
+~ Take this tool with a bunch of salt
 
 ### Sources:
 
-~ BLZ2 + BLZ4 Codes by HaoJun: https://github.com/haoJun0823/GECV-OLD/
+~ Decompression Codes from [Gil-Unx](https://github.com/gil-unx)
 
 ~ Extraction Codes Originally by SkyBladeCloud (original codes in `src`): https://gbatemp.net/members/skybladecloud.264289/
 
@@ -33,7 +35,3 @@
 #### Changelog
 **1.0**
 - Release
-
-**1.1**
-- Added Offshot Support for extraction (really buggy but some tr2 files are readable)
-- Added BLZ4
