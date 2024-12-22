@@ -1,4 +1,4 @@
-# GE2Extra
+# GE2Extra with Python Version
 
 ### GOD EATER 2 [NPJH50832] Extraction Tool (No Repack)
 
