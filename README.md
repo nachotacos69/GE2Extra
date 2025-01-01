@@ -1,3 +1,6 @@
+# [as of JAN 01, 2025. this repo will be changing constantly here and there over time because i tend to change tons of stuff that is either unecessary and necessary]
+
+
 # GE2Extra with Python Version
 
 ### GOD EATER 2 [NPJH50832] Extraction Tool (No Repack)
@@ -26,7 +29,7 @@
 ~ Base Game: (uses `package.rdp, data.rdp, system.res`)
 
 ~ DLC: (uses `package.rdp, data.rdp, patch.rdp, system_update.res`)
-For DLC: if you want to extract the game data related without the data.rdp. create a a file matching with the name and leave it empty
+~ For DLC CSharpVersion: if you want to extract the game data related without the data.rdp. create a a file matching with the name and leave it empty
 
 #### Base game files are required for extraction since the dlc uses a few important things in them.
 
@@ -37,3 +40,4 @@ For DLC: if you want to extract the game data related without the data.rdp. crea
 **1.1**
 - Added Offshot Support for extraction (really buggy but some tr2 files are readable)
 - Added BLZ4
+
