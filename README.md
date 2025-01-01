@@ -26,7 +26,7 @@
 ~ Base Game: (uses `package.rdp, data.rdp, system.res`)
 
 ~ DLC: (uses `package.rdp, data.rdp, patch.rdp, system_update.res`)
-
+For DLC: if you want to extract the game data related without the data.rdp. create a a file matching with the name and leave it empty
 
 #### Base game files are required for extraction since the dlc uses a few important things in them.
 
