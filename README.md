@@ -41,3 +41,4 @@
 - Added Offshot Support for extraction (really buggy but some tr2 files are readable)
 - Added BLZ4
 
+Jan 03 2025 - updated docs (psp only)
