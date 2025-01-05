@@ -4,7 +4,7 @@
 # GE2Extra with Python Version
 
 ### GOD EATER 2 [NPJH50832] Extraction Tool (No Repack)
-
+(older version are stored in `archives`)
 ~ Supports: 1.30 - 1.40 Versions (atleast on my testings with bugs/errors along the way).
 
 ~ This tool is mostly represents extracting many files as possible within the given input, though there's some errors like a 'Stream' error but it'll do for now atleast. And there will be No Repack support due to complexity.
