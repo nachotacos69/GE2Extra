@@ -41,4 +41,4 @@
 - Added Offshot Support for extraction (really buggy but some tr2 files are readable)
 - Added BLZ4
 
-Jan 03 2025 - updated docs (with a bit of vita)
+Jan 05 2025 - added `RES_ARCHIVE` (old tool, simple extraction. just debugger stuff, written in C# Visual Studio 2017. yes that old and i only picked it up again on my old USB drive)
