@@ -1,4 +1,4 @@
-# [as of JAN 01, 2025. this repo will be changing constantly here and there over time because i tend to change tons of stuff that is either unecessary and necessary]
+# [as of JAN 01, 2025. this repo will be changing constantly here and there over time because i tend to do tons of stuff that is either unecessary and necessary,and archiving stuff that i made in the past]
 
 
 # GE2Extra with Python Version

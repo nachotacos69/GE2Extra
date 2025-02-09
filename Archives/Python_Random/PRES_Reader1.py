@@ -1,3 +1,7 @@
+## Date Creation: Sunday, October 1 2023
+## Notes: RTBL Handling. No Nestling .res function
+
+
 import struct
 import sys
 import os
