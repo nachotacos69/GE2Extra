@@ -36,4 +36,4 @@
 #### Changelog
 - Jan 05 2025 `->` added `RES_ARCHIVE` (old tool, simple extraction. just debugger stuff, written in C# Visual Studio 2017. yes that old and i only picked it up again on my old USB drive)
 - Feb 08 2025 `->` added some random python scripts
-- Feb 11 2025 `->` adding C# codes soon. (will add them in the future)
+- Feb 11 2025 `->` adding C# codes soon. (too busy for work to actually get them)
