@@ -1,4 +1,4 @@
-# [as of JAN 01, 2025. this repo will be changing constantly here and there over time because i tend to do tons of stuff that is either unecessary and necessary,and archiving stuff that i made in the past]
+# [as of JAN 01, 2025. this repo will be changing constantly here and there over time because i tend to do tons of stuff that is either unecessary and necessary, and archiving stuff that i made in the past]
 
 
 # GE2Extra with Python Version
@@ -34,11 +34,6 @@
 #### Base game files are required for extraction since the dlc uses a few important things in them.
 
 #### Changelog
-**1.0**
-- Release
-
-**1.1**
-- Added Offshot Support for extraction (really buggy but some tr2 files are readable)
-- Added BLZ4
-
-Jan 05 2025 - added `RES_ARCHIVE` (old tool, simple extraction. just debugger stuff, written in C# Visual Studio 2017. yes that old and i only picked it up again on my old USB drive)
+- Jan 05 2025 `->` added `RES_ARCHIVE` (old tool, simple extraction. just debugger stuff, written in C# Visual Studio 2017. yes that old and i only picked it up again on my old USB drive)
+- Feb 08 2025 `->` added some random python scripts
+- Feb 11 2025 `->` adding C# codes soon. (will add them in the future)
