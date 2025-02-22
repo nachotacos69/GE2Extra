@@ -1,81 +1,240 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 
-class Pres
+namespace PRES_PROT
 {
-    class GroupEntry
+    public class PRES
     {
-        public uint DataOffset;
-        public uint Count;
-    }
-
-    public static void ParseResFile(string filePath, string outputDirectory)
-    {
-        if (!File.Exists(filePath))
+        public static void ProcessFile(string filePath)
         {
-            Console.WriteLine("File not found: " + filePath);
-            return;
+            try
+            {
+                using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (BinaryReader reader = new BinaryReader(fileStream))
+                {
+                    Console.WriteLine("Reading RES structure...");
+
+                    int header = reader.ReadInt32(); 
+                    int groupOffset = reader.ReadInt32(); 
+                    byte groupCount = reader.ReadByte();
+                    byte groupVersion = reader.ReadByte();
+                    ushort checksum = reader.ReadUInt16();
+                    int version = reader.ReadInt32();
+                    uint chunkData1 = reader.ReadUInt32();
+                    uint chunkData2 = reader.ReadUInt32();
+                    uint chunkData3 = reader.ReadUInt32();
+                    uint chunkData4 = reader.ReadUInt32();
+
+                    /* header => to be honest, i should have added a LE magic/signature (0x73657250), but im a bit of a bummer. so you can modify it when you want to
+                     * groupOffset => after header. usually all of them are just 0x20 by default
+                     * groupCount and Version => mostly it's static and don't really change much on other nested archives.
+                     * checkSum => i don't know. i suck at checkSum.
+                     * version => seems to be static and doesn't really change on other nested archives
+                     * Chunk1-4. to be honest, it still scratches my head to this day. which mean i have no clue 
+                     */
+
+
+
+                    /*=====DEBUG PRINT=====
+                    Console.WriteLine($"Header: {header}");
+                    Console.WriteLine($"Group Offset: 0x{groupOffset:X}");
+                    Console.WriteLine($"Group Count: {groupCount}");
+                    Console.WriteLine($"Group Version: {groupVersion}");
+                    Console.WriteLine($"Checksum: {checksum}");
+                    Console.WriteLine($"Version: {version}");
+                    Console.WriteLine($"Chunk Data 1: 0x{chunkData1:X}");
+                    Console.WriteLine($"Chunk Data 2: 0x{chunkData2:X}");
+                    Console.WriteLine($"Chunk Data 3: {chunkData3}");
+                    Console.WriteLine($"Chunk Data 4: {chunkData4}");
+                    =====DEBUG PRINT===== */
+
+                    List<(uint entryData, uint entryCount)> entryList = ProcessGroupData(reader, groupOffset, groupCount);
+                    List<TOCEntry> tocEntries = new List<TOCEntry>();
+
+                    foreach (var (entryData, entryCount) in entryList)
+                    {
+                        ProcessTOC(reader, entryData, entryCount, tocEntries);
+                    }
+
+                    Data.ExtractFiles(filePath, tocEntries);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing file: {ex.Message}");
+            }
         }
 
-        using (BinaryReader reader = new BinaryReader(File.Open(filePath, FileMode.Open, FileAccess.Read)))
+        private static List<(uint entryData, uint entryCount)> ProcessGroupData(BinaryReader reader, int groupOffset, byte groupCount)
         {
-            // Read Header
-            int header = reader.ReadInt32();
-            int groupOffset = reader.ReadInt32();
-            byte groupCount = reader.ReadByte();
-            byte groupVersion = reader.ReadByte();
-            ushort checksum = reader.ReadUInt16();
-            int version = reader.ReadInt32();
+            List<(uint entryData, uint entryCount)> entryList = new List<(uint, uint)>();
 
-            uint chunkData1 = reader.ReadUInt32();
-            uint chunkData2 = reader.ReadUInt32();
-            uint chunkData3 = reader.ReadUInt32();
-            uint chunkData4 = reader.ReadUInt32();
+            reader.BaseStream.Seek(groupOffset, SeekOrigin.Begin);
+            Console.WriteLine("\nProcessing Group Data...");
 
-            // Print Header Data
-            //debug       Console.WriteLine("[Header]");
-            //debug        Console.WriteLine($"Header: {header}");
-            //debug       Console.WriteLine($"Group Offset: 0x{groupOffset:X}");
-            //debug       Console.WriteLine($"Group Count: {groupCount}");
-            //debug       Console.WriteLine($"Group Version: {groupVersion}");
-            //debug        Console.WriteLine($"Checksum: 0x{checksum:X}");
-            //debug       Console.WriteLine($"Version: {version}");
-            //debug       Console.WriteLine($"ChunkData1 Offset: 0x{chunkData1:X}");
-            //debug       Console.WriteLine($"ChunkData2 Offset: 0x{chunkData2:X}");
-            //debug       Console.WriteLine($"ChunkData3: {chunkData3}");
-            //debug       Console.WriteLine($"ChunkData4: {chunkData4}");
-
-            // Read Group Data first and store in a list
-            List<GroupEntry> groupEntries = new List<GroupEntry>();
-
-            if (groupOffset > 0)
+            for (int i = 0; i < groupCount; i++)
             {
-                reader.BaseStream.Seek(groupOffset, SeekOrigin.Begin);
-                //debug     Console.WriteLine("\n[Group Data]");
+                uint entryData = reader.ReadUInt32(); // finds a valid Offset
+                uint entryCount = reader.ReadUInt32();  // finds a valid Count
 
-                for (int i = 0; i < groupCount; i++)
+                if (entryData == 0 && entryCount == 0)
                 {
-                    uint GD_EntryData = reader.ReadUInt32();
-                    uint GD_EntryCount = reader.ReadUInt32();
-                    groupEntries.Add(new GroupEntry { DataOffset = GD_EntryData, Count = GD_EntryCount });
+                    Console.WriteLine($"Entry {i}: Empty");
+                }
+                else
+                {
+                    Console.WriteLine($"Entry {i}: Data Offset = 0x{entryData:X}, Count = {entryCount}");
+                    entryList.Add((entryData, entryCount));
                 }
             }
 
-            // Now print all collected group entries
-            for (int i = 0; i < groupEntries.Count; i++)
-            {
-                //debug    Console.WriteLine($"Entry {i}: Data Offset: 0x{groupEntries[i].DataOffset:X}, Count: {groupEntries[i].Count}\n\n");
-            }
+            return entryList;
+        }
 
-            // Now process TOCs using the collected entries
-            foreach (var entry in groupEntries)
+        private static void ProcessTOC(BinaryReader reader, uint tocOffset, uint tocCount, List<TOCEntry> tocEntries)
+        {
+            reader.BaseStream.Seek(tocOffset, SeekOrigin.Begin);
+            //DEBUG PRINT    Console.WriteLine($"\nProcessing TOC at offset 0x{tocOffset:X} with {tocCount} entries...");
+
+            int totalBytes = (int)(tocCount * 32);
+            byte[] tocData = reader.ReadBytes(totalBytes);
+
+            for (uint i = 0; i < tocCount; i++)
             {
-                if (entry.DataOffset > 0 && entry.Count > 0)
+                int entryStart = (int)(i * 32); // entryCount multiply by 32 bytes
+                byte[] entryBytes = new byte[32];
+                Array.Copy(tocData, entryStart, entryBytes, 0, 32);
+
+                bool isEmpty = true;
+                for (int j = 0; j < 16; j++)
                 {
-                    TOC.ParseTOC(reader, entry.DataOffset, entry.Count, outputDirectory);
+                    if (entryBytes[j] != 0)
+                    {
+                        isEmpty = false;
+                        break;
+                    }
+                }
+
+                if (isEmpty)
+                {
+            //DEBUG PRINT        Console.WriteLine($"TOC Entry {i}: Skipped (Empty)");
+                    continue;
+                }
+
+                using (MemoryStream ms = new MemoryStream(entryBytes))
+                using (BinaryReader tocReader = new BinaryReader(ms))
+                {
+                    uint tocOffRaw = tocReader.ReadUInt32(); // Offset
+                    uint tocCSize = tocReader.ReadUInt32(); // Compressed Size
+                    uint tocName = tocReader.ReadUInt32(); // Offset Name
+                    uint tocNameVal = tocReader.ReadUInt32(); // Offset Value
+                    tocReader.BaseStream.Seek(12, SeekOrigin.Current); // skip padding
+                    uint tocDSize = tocReader.ReadUInt32(); // Decompressed Size
+
+                    uint marker = tocOffRaw & 0xF0000000; // eats the first byte/value of the tocOffRaw's offset
+                    uint tocOff = tocOffRaw & 0x0FFFFFFF; // spits out the clean version of tocOffRaw. (basically 0x40000001 to 0x1 or 0x00000001)
+                    string markerType = GetMarkerType(marker);
+                    uint rdpOffset = (markerType.Contains(".rdp")) ? tocOff * 0x800 : tocOff;
+
+                    TOCEntry entry = new TOCEntry
+                    {
+                        TOC_OFF = tocOffRaw,
+                        TOC_CSIZE = tocCSize,
+                        Name = "",
+                        Type = "",
+                        Path = "",
+                        Path2 = "",
+                        NoSetPath = "",
+                        AbsoluteOffset = tocOff,
+                        IsRDP = markerType.Contains(".rdp"),
+                        RDPFileName = markerType.Contains("package") ? "package.rdp" :
+                                      markerType.Contains("data") ? "data.rdp" :
+                                      markerType.Contains("patch") ? "patch.rdp" : null,
+                        RDPAbsoluteOffset = rdpOffset
+                    };
+                    /*======DEBUG PRINT=====
+                    Console.WriteLine($"TOC Entry {i}:");
+                    Console.WriteLine($"  Original Offset: 0x{tocOffRaw:X}");
+                    Console.WriteLine($"  Adjusted Offset: 0x{tocOff:X}");
+                    Console.WriteLine($"  Marker: {markerType}");
+                    if (markerType.Contains(".rdp"))
+                        Console.WriteLine($"  RDP Absolute Offset: 0x{rdpOffset:X}");
+                    Console.WriteLine($"  Compressed Size: {tocCSize}");
+                    Console.WriteLine($"  End Offset: 0x{(rdpOffset + tocCSize):X}");
+                    Console.WriteLine($"  Data Size: {tocDSize}");
+                    =======DEBUG PRINT=====*/
+                    if (tocName != 0 && tocNameVal > 0)
+                    {
+                        ProcessNameStructure(reader, tocName, tocNameVal, ref entry);
+                    }
+
+                    tocEntries.Add(entry);
                 }
             }
+        }
+
+        private static string GetMarkerType(uint marker) // it serves it well
+        {
+            if (marker == 0x30000000) return "NoSet";
+            if (marker == 0x40000000) return "package.rdp";
+            if (marker == 0x50000000) return "data.rdp";
+            if (marker == 0x60000000) return "patch.rdp";
+            if (marker == 0xC0000000 || marker == 0xD0000000) return "Current File";
+            return "Unknown";
+        }
+
+        private static void ProcessNameStructure(BinaryReader reader, uint nameOffset, uint nameValue, ref TOCEntry entry)
+        {
+            reader.BaseStream.Seek(nameOffset, SeekOrigin.Begin);
+            byte[] nameData = reader.ReadBytes((int)(nameValue * 4));
+
+            using (MemoryStream ms = new MemoryStream(nameData))
+            using (BinaryReader nameReader = new BinaryReader(ms))
+            {
+                /*Each of these represent as 24 bytes in total (4 bytes/UINT32 each)
+                 * Name
+                 * Type
+                 * Path
+                 * Path2
+                 * noSetPath
+                
+                */
+                uint namePtr = nameReader.ReadUInt32();
+                uint typePtr = (nameValue > 1) ? nameReader.ReadUInt32() : 0;
+                uint pathPtr = (nameValue > 2) ? nameReader.ReadUInt32() : 0;
+                uint path2Ptr = (nameValue > 3) ? nameReader.ReadUInt32() : 0;
+                uint noSetPathPtr = (nameValue > 4) ? nameReader.ReadUInt32() : 0;
+
+                if (namePtr != 0) entry.Name = ReadString(reader, namePtr);
+                if (typePtr != 0) entry.Type = ReadString(reader, typePtr);
+                if (pathPtr != 0) entry.Path = ReadString(reader, pathPtr);
+                if (path2Ptr != 0) entry.Path2 = ReadString(reader, path2Ptr);
+                if (noSetPathPtr != 0) entry.NoSetPath = ReadString(reader, noSetPathPtr);
+                /*======DEBUG PRINT=====
+                     Console.WriteLine("  Name Structure:");
+                     Console.WriteLine($"    Name: {ReadString(reader, namePtr)}");
+                     Console.WriteLine($"    Type: {ReadString(reader, typePtr)}");
+                     Console.WriteLine($"    Path: {ReadString(reader, pathPtr)}");
+                     if (path2Ptr != 0) Console.WriteLine($"    Path2: {ReadString(reader, path2Ptr)}");
+                     if (noSetPathPtr != 0) Console.WriteLine($"    NoSetPath: {ReadString(reader, noSetPathPtr)}");
+                ======DEBUG PRINT=====*/
+            }
+        }
+
+        private static string ReadString(BinaryReader reader, uint offset)
+        {
+            reader.BaseStream.Seek(offset, SeekOrigin.Begin);
+            List<byte> byteList = new List<byte>();
+
+            byte currentByte;
+            while ((currentByte = reader.ReadByte()) != 0)
+            {
+                byteList.Add(currentByte);
+            }
+
+            return Encoding.UTF8.GetString(byteList.ToArray());
         }
     }
 }

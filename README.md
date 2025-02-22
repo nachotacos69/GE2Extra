@@ -37,4 +37,4 @@
 - Jan 05 2025 `->` added `RES_ARCHIVE` (old tool, simple extraction. just debugger stuff, written in C# Visual Studio 2017. yes that old and i only picked it up again on my old USB drive)
 - Feb 08 2025 `->` added some random python scripts
 - Feb 15 2025 `->` added some more python code 
-- Feb 16 2025 `-` added PRES_PROT (supports PSP/Vita) 
+- Feb 22 2025 `-` added+updated PRES_PROT (supports PSP/Vita **EXCEPT ENGLISH VERSIONS**) 

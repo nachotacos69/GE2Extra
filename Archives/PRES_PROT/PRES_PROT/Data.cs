@@ -1,158 +1,202 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
-class Data
+namespace PRES_PROT
 {
-    public static void ExtractFile(BinaryReader reader, uint interpretedOffset, uint endOffset, uint compressedSize, string name, string type, string path, string path2, string noSetPath, string outputDirectory)
+    public class Data
     {
-        // Ensure the output directory exists
-        if (!Directory.Exists(outputDirectory))
+        public static void ExtractFiles(string inputFilePath, List<TOCEntry> tocEntries)
         {
-            Directory.CreateDirectory(outputDirectory);
-        }
+            string outputFolder = Path.Combine(Path.GetDirectoryName(inputFilePath), Path.GetFileNameWithoutExtension(inputFilePath));
+            Directory.CreateDirectory(outputFolder);
 
-        string filePath = Path.Combine(outputDirectory, $"{name}.{type}");
-
-        // Handle PATH/PATH2
-        if (!string.IsNullOrEmpty(path) || !string.IsNullOrEmpty(path2))
-        {
-            // Use PATH2 if it exists, otherwise use PATH
-            string directoryPath = !string.IsNullOrEmpty(path2) ? path2 : path;
-
-            // Combine the output directory with the PATH/PATH2 directory
-            directoryPath = Path.Combine(outputDirectory, directoryPath);
-
-            // Create the directory and any subdirectories
-            if (!Directory.Exists(directoryPath))
+            using (FileStream inputFile = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read))
+            using (BinaryReader reader = new BinaryReader(inputFile))
             {
-                Directory.CreateDirectory(directoryPath);
+                foreach (var entry in tocEntries)
+                {
+                    if (!string.IsNullOrEmpty(entry.NoSetPath))
+                    {
+                        HandleNoSetPath(entry, outputFolder);
+                        continue;
+                    }
+
+                    if (entry.TOC_OFF == 0 || entry.TOC_CSIZE == 0)
+                    {
+                        GenerateEmptyFile(outputFolder, entry);
+                        continue;
+                    }
+
+                    string filePath = GenerateFilePath(outputFolder, entry);
+                    Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+
+                    if (entry.IsRDP)
+                    {
+                        ExtractFromRDP(entry, filePath);
+                    }
+                    else
+                    {
+                        ExtractFromCurrentFile(reader, entry, filePath);
+                    }
+                }
             }
 
-            // Handle NoSetPath (PATH= prefix)
-            if (!string.IsNullOrEmpty(noSetPath) && noSetPath.StartsWith("PATH=", StringComparison.OrdinalIgnoreCase))
+            ProcessNestedRESFiles(outputFolder);
+        }
+
+        private static void ExtractFromCurrentFile(BinaryReader reader, TOCEntry entry, string filePath)
+        {
+            reader.BaseStream.Seek(entry.AbsoluteOffset, SeekOrigin.Begin);
+            byte[] data = reader.ReadBytes((int)entry.TOC_CSIZE);
+
+            // Check if the file has a BLZ2 header
+            if (data.Length >= 4 && BLZ.IsBLZ2(data))
             {
-                string originalFilePath = noSetPath.Substring(5); // Remove "PATH=" prefix
+                Console.WriteLine($"Decompressing BLZ2 file: {filePath}");
+                data = BLZ.DecompressBLZ2(data);
+            }
+            // Check if the file has a BLZ4 header
+            else if (data.Length >= 4 && BLZ4.IsBLZ4(data))
+            {
+                Console.WriteLine($"Decompressing BLZ4 file: {filePath}");
+                data = BLZ4.DecompressBLZ4(data);
+            }
 
-                // Construct the destination path within the PATH/PATH2 directory
-                string destinationFilePath = Path.Combine(directoryPath, originalFilePath);
+            File.WriteAllBytes(filePath, data);
+            Console.WriteLine($"Extracted: {filePath}");
+        }
 
-                // Ensure the destination directory exists
-                string destinationDirectory = Path.GetDirectoryName(destinationFilePath);
-                if (!Directory.Exists(destinationDirectory))
+
+        private static void ExtractFromRDP(TOCEntry entry, string filePath)
+        {
+            string scriptDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string rdpFilePath = Path.Combine(scriptDirectory, entry.RDPFileName);
+
+            if (!File.Exists(rdpFilePath))
+            {
+                Console.WriteLine($"Missing RDP file: {rdpFilePath}");
+                return;
+            }
+
+            using (FileStream rdpStream = new FileStream(rdpFilePath, FileMode.Open, FileAccess.Read))
+            using (BinaryReader rdpReader = new BinaryReader(rdpStream))
+            {
+                rdpReader.BaseStream.Seek(entry.RDPAbsoluteOffset, SeekOrigin.Begin);
+                byte[] data = rdpReader.ReadBytes((int)entry.TOC_CSIZE);
+
+                File.WriteAllBytes(filePath, data);
+                Console.WriteLine($"Extracted from RDP: {filePath}");
+            }
+        }
+
+        private static void GenerateEmptyFile(string outputFolder, TOCEntry entry)
+        {
+            string filePath = GenerateFilePath(outputFolder, entry);
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+
+            File.WriteAllBytes(filePath, Array.Empty<byte>());
+            Console.WriteLine($"Generated empty file: {filePath}");
+        }
+
+        private static string GenerateFilePath(string outputFolder, TOCEntry entry)
+        {
+            string subPath = entry.Path ?? "";
+
+            // Apply Path2 if it exists
+            if (!string.IsNullOrEmpty(entry.Path2))
+            {
+                string lastPathPart = Path.GetFileName(entry.Path2); // Get last part of Path2
+                string expectedFileName = string.IsNullOrEmpty(entry.Type) ? entry.Name : $"{entry.Name}.{entry.Type}";
+
+                // If the last part of Path2 matches Name + Type, treat it as a file and avoid extra nesting
+                if (string.Equals(lastPathPart, expectedFileName, StringComparison.OrdinalIgnoreCase))
                 {
-                    Directory.CreateDirectory(destinationDirectory);
-                }
-
-                // Check if the original file exists
-                if (File.Exists(originalFilePath))
-                {
-                    // Handle duplicate file names
-                    destinationFilePath = GetUniqueFileName(destinationFilePath);
-
-                    // Copy the file from the original location to the destination path
-                    File.Copy(originalFilePath, destinationFilePath, overwrite: true);
-                    Console.WriteLine($"Copied file from {originalFilePath} to {destinationFilePath}");
-                    return; // Skip the rest of the extraction logic for NoSetPath
+                    subPath = Path.GetDirectoryName(entry.Path2) ?? ""; // Use only the directory part of Path2
                 }
                 else
                 {
-                    Console.WriteLine($"Original file not found: {originalFilePath}");
-                    return;
+                    subPath = string.IsNullOrEmpty(entry.Path) ? entry.Path2 : Path.Combine(entry.Path2, entry.Path);
                 }
             }
 
-            // If NoSetPath is not provided, place the file in the PATH/PATH2 directory
-            filePath = Path.Combine(directoryPath, $"{name}.{type}");
+            string fileName = string.IsNullOrEmpty(entry.Type) ? entry.Name : $"{entry.Name}.{entry.Type}";
+            string fullPath = Path.Combine(outputFolder, subPath, fileName);
+
+            return HandleDuplicateFileName(fullPath);
         }
 
-        // Handle duplicate file names
-        filePath = GetUniqueFileName(filePath);
 
-        // Extract the file data
-        reader.BaseStream.Seek(interpretedOffset, SeekOrigin.Begin);
-        byte[] data = reader.ReadBytes((int)compressedSize);
-
-        // Check if the data is BLZ2 compressed
-        if (BLZ.IsBLZ2(data))
+        private static void HandleNoSetPath(TOCEntry entry, string outputFolder)
         {
-            Console.WriteLine($"Decompressing BLZ2 file: {filePath}");
-            data = BLZ.DecompressBLZ2(data);
-        }
+            string actualPath = entry.NoSetPath.StartsWith("PATH=") ? entry.NoSetPath.Substring(5) : entry.NoSetPath;
+            string baseDirectory = "."; // Search in the main directory
+            string sourcePath = Path.Combine(baseDirectory, actualPath);
 
-        // Write the file
-        File.WriteAllBytes(filePath, data);
-        Console.WriteLine($"Extracted file: {filePath}");
-    }
-
-    public static void HandleMarker(uint marker, uint interpretedOffset, uint compressedSize, string name, string type, string outputDirectory)
-    {
-        string rdpFile = "";
-        switch (marker)
-        {
-            case 0x4:
-                rdpFile = "package.rdp";
-                break;
-            case 0x5:
-                rdpFile = "data.rdp";
-                break;
-            case 0x6:
-                rdpFile = "patch.rdp";
-                break;
-        }
-
-        if (!string.IsNullOrEmpty(rdpFile))
-        {
-            using (BinaryReader rdpReader = new BinaryReader(File.Open(rdpFile, FileMode.Open)))
+            if (!File.Exists(sourcePath))
             {
-                rdpReader.BaseStream.Seek(interpretedOffset, SeekOrigin.Begin);
-                byte[] data = rdpReader.ReadBytes((int)compressedSize);
-
-                // Check if the data is BLZ2 compressed
-                if (BLZ.IsBLZ2(data))
-                {
-                    Console.WriteLine($"Decompressing BLZ2 file from {rdpFile}");
-                    data = BLZ.DecompressBLZ2(data);
-                }
-
-                // Ensure the output directory exists
-                if (!Directory.Exists(outputDirectory))
-                {
-                    Directory.CreateDirectory(outputDirectory);
-                }
-
-                // Handle duplicate file names
-                string filePath = Path.Combine(outputDirectory, $"{name}.{type}");
-                filePath = GetUniqueFileName(filePath);
-
-                // Write the file
-                File.WriteAllBytes(filePath, data);
-                Console.WriteLine($"Extracted file: {filePath}");
+                Console.WriteLine($"NoSetPath file not found: {sourcePath}");
+                return;
             }
+
+            string destinationDirectory = !string.IsNullOrEmpty(entry.Path2)
+                ? Path.Combine(outputFolder, entry.Path2, Path.GetDirectoryName(actualPath))
+                : Path.Combine(outputFolder, Path.GetDirectoryName(actualPath));
+
+            Directory.CreateDirectory(destinationDirectory);
+            string destinationPath = Path.Combine(destinationDirectory, Path.GetFileName(actualPath));
+
+            File.Copy(sourcePath, destinationPath, true);
+            Console.WriteLine($"Copied NoSetPath file: {destinationPath}");
+        }
+
+        private static void ProcessNestedRESFiles(string outputFolder)
+        {
+            List<string> resFiles = Directory.GetFiles(outputFolder, "*.res", SearchOption.AllDirectories)
+                                             .OrderBy(f => f)
+                                             .ToList();
+
+            foreach (string resFile in resFiles)
+            {
+                Console.WriteLine($"Processing nested RES file: {resFile}");
+                PRES.ProcessFile(resFile);
+            }
+        }
+
+        private static string HandleDuplicateFileName(string filePath)
+        {
+            if (!File.Exists(filePath))
+                return filePath;
+
+            int counter = 0;
+            string directory = Path.GetDirectoryName(filePath);
+            string fileName = Path.GetFileNameWithoutExtension(filePath);
+            string extension = Path.GetExtension(filePath);
+
+            string newFilePath;
+            do
+            {
+                newFilePath = Path.Combine(directory, $"{fileName}_{counter:D4}{extension}");
+                counter++;
+            } while (File.Exists(newFilePath));
+
+            return newFilePath;
         }
     }
 
-    private static string GetUniqueFileName(string filePath)
+    public class TOCEntry
     {
-        // If the file doesn't exist, return the original path
-        if (!File.Exists(filePath))
-        {
-            return filePath;
-        }
-
-        // Extract directory, file name, and extension
-        string directory = Path.GetDirectoryName(filePath);
-        string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
-        string extension = Path.GetExtension(filePath);
-
-        // Append a suffix like _0000, _0001, etc., until a unique file name is found
-        int counter = 0;
-        string newFilePath;
-        do
-        {
-            newFilePath = Path.Combine(directory, $"{fileNameWithoutExtension}_{counter.ToString("D4")}{extension}");
-            counter++;
-        } while (File.Exists(newFilePath));
-
-        return newFilePath;
+        public uint TOC_OFF;
+        public uint TOC_CSIZE;
+        public string Name;
+        public string Type;
+        public string Path;
+        public string Path2;
+        public string NoSetPath;
+        public uint AbsoluteOffset;
+        public bool IsRDP;
+        public string RDPFileName;
+        public uint RDPAbsoluteOffset;
     }
 }
