@@ -43,8 +43,10 @@ namespace PRES_PROT
                 }
             }
 
-            ProcessNestedRESFiles(outputFolder);
+            ProcessNestedFiles(outputFolder);
         }
+
+        
 
         private static void ExtractFromCurrentFile(BinaryReader reader, TOCEntry entry, string filePath)
         {
@@ -107,20 +109,25 @@ namespace PRES_PROT
             // Apply Path2 if it exists
             if (!string.IsNullOrEmpty(entry.Path2))
             {
-                string lastPathPart = Path.GetFileName(entry.Path2); // Get last part of Path2
-                string expectedFileName = string.IsNullOrEmpty(entry.Type) ? entry.Name : $"{entry.Name}.{entry.Type}";
-
-                // If the last part of Path2 matches Name + Type, treat it as a file and avoid extra nesting
-                if (string.Equals(lastPathPart, expectedFileName, StringComparison.OrdinalIgnoreCase))
+                // If Path2 already contains the full path, use it directly
+                if (entry.Path2.StartsWith(outputFolder, StringComparison.OrdinalIgnoreCase))
                 {
-                    subPath = Path.GetDirectoryName(entry.Path2) ?? ""; // Use only the directory part of Path2
+                    subPath = entry.Path2;
                 }
                 else
                 {
-                    subPath = string.IsNullOrEmpty(entry.Path) ? entry.Path2 : Path.Combine(entry.Path2, entry.Path);
+                    // Otherwise, combine Path and Path2
+                    subPath = Path.Combine(entry.Path2, subPath);
                 }
             }
 
+            // Ensure the subPath is relative to the outputFolder
+            if (subPath.StartsWith(outputFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                subPath = subPath.Substring(outputFolder.Length).TrimStart(Path.DirectorySeparatorChar);
+            }
+
+            // Construct the final file path
             string fileName = string.IsNullOrEmpty(entry.Type) ? entry.Name : $"{entry.Name}.{entry.Type}";
             string fullPath = Path.Combine(outputFolder, subPath, fileName);
 
@@ -131,15 +138,23 @@ namespace PRES_PROT
         private static void HandleNoSetPath(TOCEntry entry, string outputFolder)
         {
             string actualPath = entry.NoSetPath.StartsWith("PATH=") ? entry.NoSetPath.Substring(5) : entry.NoSetPath;
-            string baseDirectory = "."; // Search in the main directory
-            string sourcePath = Path.Combine(baseDirectory, actualPath);
+
+            // Search for the file in the output folder first
+            string sourcePath = Path.Combine(outputFolder, actualPath);
 
             if (!File.Exists(sourcePath))
             {
-                Console.WriteLine($"NoSetPath file not found: {sourcePath}");
-                return;
+                // If not found, search in the current directory
+                sourcePath = Path.Combine(".", actualPath);
+
+                if (!File.Exists(sourcePath))
+                {
+                    Console.WriteLine($"NoSetPath file not found: {actualPath}");
+                    return;
+                }
             }
 
+            // Construct the destination path
             string destinationDirectory = !string.IsNullOrEmpty(entry.Path2)
                 ? Path.Combine(outputFolder, entry.Path2, Path.GetDirectoryName(actualPath))
                 : Path.Combine(outputFolder, Path.GetDirectoryName(actualPath));
@@ -151,8 +166,10 @@ namespace PRES_PROT
             Console.WriteLine($"Copied NoSetPath file: {destinationPath}");
         }
 
-        private static void ProcessNestedRESFiles(string outputFolder)
+        private static void ProcessNestedFiles(string outputFolder)
         {
+            
+            // Process nested .res files
             List<string> resFiles = Directory.GetFiles(outputFolder, "*.res", SearchOption.AllDirectories)
                                              .OrderBy(f => f)
                                              .ToList();
@@ -162,7 +179,20 @@ namespace PRES_PROT
                 Console.WriteLine($"Processing nested RES file: {resFile}");
                 PRES.ProcessFile(resFile);
             }
+
+            // Process extracted .rtbl files
+            List<string> rtblFiles = Directory.GetFiles(outputFolder, "*.rtbl", SearchOption.AllDirectories)
+                                              .OrderBy(f => f)
+                                              .ToList();
+
+            foreach (string rtFile in rtblFiles)
+            {
+                Console.WriteLine($"Processing extracted RTBL file: {rtFile}");
+                RTBL.ProcessRTBL(rtFile);
+            }
+
         }
+
 
         private static string HandleDuplicateFileName(string filePath)
         {

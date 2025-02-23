@@ -3,8 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace PRES_PROT
-{
+
+// ORIGINAL BY HAOJUN/RANDERION: https://github.com/HaoJun0823/GECV-OLD
+// edited a lot due so the important parts can only be shown
+
+
     public static class BLZ4
     {
         private static readonly int BLZ4_HEADER = 0x347A6C62;
@@ -93,4 +96,4 @@ namespace PRES_PROT
             }
         }
     }
-}
+

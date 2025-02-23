@@ -11,13 +11,21 @@ namespace PRES_PROT
         {
             try
             {
+                // Ensure the file exists
+                if (!File.Exists(filePath))
+                {
+                    Console.WriteLine($"File not found: {filePath}");
+                    return;
+                }
+
+                // Use a fresh FileStream and BinaryReader for each file
                 using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 using (BinaryReader reader = new BinaryReader(fileStream))
                 {
-                    Console.WriteLine("Reading RES structure...");
+                    Console.WriteLine($"Reading RES structure: {filePath}");
 
-                    int header = reader.ReadInt32(); 
-                    int groupOffset = reader.ReadInt32(); 
+                    int header = reader.ReadInt32();
+                    int groupOffset = reader.ReadInt32();
                     byte groupCount = reader.ReadByte();
                     byte groupVersion = reader.ReadByte();
                     ushort checksum = reader.ReadUInt16();
@@ -26,16 +34,6 @@ namespace PRES_PROT
                     uint chunkData2 = reader.ReadUInt32();
                     uint chunkData3 = reader.ReadUInt32();
                     uint chunkData4 = reader.ReadUInt32();
-
-                    /* header => to be honest, i should have added a LE magic/signature (0x73657250), but im a bit of a bummer. so you can modify it when you want to
-                     * groupOffset => after header. usually all of them are just 0x20 by default
-                     * groupCount and Version => mostly it's static and don't really change much on other nested archives.
-                     * checkSum => i don't know. i suck at checkSum.
-                     * version => seems to be static and doesn't really change on other nested archives
-                     * Chunk1-4. to be honest, it still scratches my head to this day. which mean i have no clue 
-                     */
-
-
 
                     /*=====DEBUG PRINT=====
                     Console.WriteLine($"Header: {header}");
@@ -58,12 +56,13 @@ namespace PRES_PROT
                         ProcessTOC(reader, entryData, entryCount, tocEntries);
                     }
 
+                    // Extract files and process nested archives
                     Data.ExtractFiles(filePath, tocEntries);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error processing file: {ex.Message}");
+                Console.WriteLine($"Error processing file {filePath}: {ex.Message}");
             }
         }
 
@@ -119,22 +118,23 @@ namespace PRES_PROT
 
                 if (isEmpty)
                 {
-            //DEBUG PRINT        Console.WriteLine($"TOC Entry {i}: Skipped (Empty)");
+                    //DEBUG PRINT        Console.WriteLine($"TOC Entry {i}: Skipped (Empty)");
                     continue;
                 }
 
                 using (MemoryStream ms = new MemoryStream(entryBytes))
                 using (BinaryReader tocReader = new BinaryReader(ms))
                 {
-                    uint tocOffRaw = tocReader.ReadUInt32(); // Offset
-                    uint tocCSize = tocReader.ReadUInt32(); // Compressed Size
-                    uint tocName = tocReader.ReadUInt32(); // Offset Name
-                    uint tocNameVal = tocReader.ReadUInt32(); // Offset Value
-                    tocReader.BaseStream.Seek(12, SeekOrigin.Current); // skip padding
-                    uint tocDSize = tocReader.ReadUInt32(); // Decompressed Size
+                    uint tocOffRaw = tocReader.ReadUInt32();
+                    uint tocCSize = tocReader.ReadUInt32();
+                    uint tocName = tocReader.ReadUInt32();
+                    uint tocNameVal = tocReader.ReadUInt32();
+                    tocReader.BaseStream.Seek(12, SeekOrigin.Current);
+                    uint tocDSize = tocReader.ReadUInt32();
 
-                    uint marker = tocOffRaw & 0xF0000000; // eats the first byte/value of the tocOffRaw's offset
-                    uint tocOff = tocOffRaw & 0x0FFFFFFF; // spits out the clean version of tocOffRaw. (basically 0x40000001 to 0x1 or 0x00000001)
+                    uint marker = tocOffRaw & 0xF0000000;
+                    uint tocOff = tocOffRaw & 0x0FFFFFFF;
+
                     string markerType = GetMarkerType(marker);
                     uint rdpOffset = (markerType.Contains(".rdp")) ? tocOff * 0x800 : tocOff;
 
@@ -154,17 +154,7 @@ namespace PRES_PROT
                                       markerType.Contains("patch") ? "patch.rdp" : null,
                         RDPAbsoluteOffset = rdpOffset
                     };
-                    /*======DEBUG PRINT=====
-                    Console.WriteLine($"TOC Entry {i}:");
-                    Console.WriteLine($"  Original Offset: 0x{tocOffRaw:X}");
-                    Console.WriteLine($"  Adjusted Offset: 0x{tocOff:X}");
-                    Console.WriteLine($"  Marker: {markerType}");
-                    if (markerType.Contains(".rdp"))
-                        Console.WriteLine($"  RDP Absolute Offset: 0x{rdpOffset:X}");
-                    Console.WriteLine($"  Compressed Size: {tocCSize}");
-                    Console.WriteLine($"  End Offset: 0x{(rdpOffset + tocCSize):X}");
-                    Console.WriteLine($"  Data Size: {tocDSize}");
-                    =======DEBUG PRINT=====*/
+
                     if (tocName != 0 && tocNameVal > 0)
                     {
                         ProcessNameStructure(reader, tocName, tocNameVal, ref entry);
@@ -175,7 +165,7 @@ namespace PRES_PROT
             }
         }
 
-        private static string GetMarkerType(uint marker) // it serves it well
+        private static string GetMarkerType(uint marker)
         {
             if (marker == 0x30000000) return "NoSet";
             if (marker == 0x40000000) return "package.rdp";
@@ -193,14 +183,6 @@ namespace PRES_PROT
             using (MemoryStream ms = new MemoryStream(nameData))
             using (BinaryReader nameReader = new BinaryReader(ms))
             {
-                /*Each of these represent as 24 bytes in total (4 bytes/UINT32 each)
-                 * Name
-                 * Type
-                 * Path
-                 * Path2
-                 * noSetPath
-                
-                */
                 uint namePtr = nameReader.ReadUInt32();
                 uint typePtr = (nameValue > 1) ? nameReader.ReadUInt32() : 0;
                 uint pathPtr = (nameValue > 2) ? nameReader.ReadUInt32() : 0;
@@ -212,14 +194,6 @@ namespace PRES_PROT
                 if (pathPtr != 0) entry.Path = ReadString(reader, pathPtr);
                 if (path2Ptr != 0) entry.Path2 = ReadString(reader, path2Ptr);
                 if (noSetPathPtr != 0) entry.NoSetPath = ReadString(reader, noSetPathPtr);
-                /*======DEBUG PRINT=====
-                     Console.WriteLine("  Name Structure:");
-                     Console.WriteLine($"    Name: {ReadString(reader, namePtr)}");
-                     Console.WriteLine($"    Type: {ReadString(reader, typePtr)}");
-                     Console.WriteLine($"    Path: {ReadString(reader, pathPtr)}");
-                     if (path2Ptr != 0) Console.WriteLine($"    Path2: {ReadString(reader, path2Ptr)}");
-                     if (noSetPathPtr != 0) Console.WriteLine($"    NoSetPath: {ReadString(reader, noSetPathPtr)}");
-                ======DEBUG PRINT=====*/
             }
         }
 
