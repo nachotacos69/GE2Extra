@@ -198,7 +198,7 @@ Sample HEX of Name Structure:
 ---> once you got the first block (do not include copying the compressed size value). decompressed it to get your first part of the decompressed area of that file.
 ---> when finished, read another 2 bytes of compressed size value and get another compressed block. rinse and repeat, and then you should get tons of blocks that you kind need to form them into one file.
 ---> re-arrange them in 01234567 to a 12345670 manner (when decompressed).
----> re-arrange them Header → Last Full Block → Tail → Body (when compressed).
+---> re-arrange them in: Header → Last Full Block → Tail → Body (when compressed). [Refer to any existing compression tool for zlib or in my BLOCK_ZIP script]
 
 
 
