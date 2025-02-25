@@ -189,7 +189,7 @@ Sample HEX of Name Structure:
 /// BLZ2 Compression
 0x00 = MAGIC/HEADER: header of the compressed block (ASCII: blz2 || HEX: 0x327a6c62)
 0x04 = Compressed Size: uint16. maximum compression is 0xFFFF.
-0x06 and Above = Compressed Blocks that matches with the compressed size value.
+0x06 and Above = Compressed Blocks, which it the size itself matches with the compressed size value.
 
 --> you can mostly deflate these stuff by using a DeflateStream on C#
 ---> Keep in mind that the BLZ2 compression above 0xFFFF are needed to be worked in blocks so if that first block you capture and decompressed, 
@@ -197,7 +197,8 @@ Sample HEX of Name Structure:
 ---> if the compressed file is above 0xFFFF, firstly you need to get the first block. of course the compressed block matches with the compressed size value
 ---> once you got the first block (do not include copying the compressed size value). decompressed it to get your first part of the decompressed area of that file.
 ---> when finished, read another 2 bytes of compressed size value and get another compressed block. rinse and repeat, and then you should get tons of blocks that you kind need to form them into one file.
----> re-arrange them in 01234567 to a 12345670 manner.
+---> re-arrange them in 01234567 to a 12345670 manner (when decompressed).
+---> re-arrange them Header → Last Full Block → Tail → Body (when compressed).
 
 
 
