@@ -31,3 +31,4 @@
 - Feb 15 2025 `->` added some more python code 
 - Feb 23 2025 `->` added+updated PRES_PROT (supports PSP/Vita **EXCEPT ENGLISH VERSIONS due to RES archive differences**). And moved archived stuff outside here so people can see it :)
 - Feb 24 2025 `->` added Basic_Stuff with the sources too, this is my testing stages before PRES_PROT becomes public. Also added `RES_STRUCTURE` documentation in text. this is old as well lmao
+- Feb 25 2025 `->` added BLOCK_ZIP, compresses the file you gived for the game to actually use it.
