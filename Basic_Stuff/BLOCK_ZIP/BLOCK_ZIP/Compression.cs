@@ -4,16 +4,22 @@
  */
 
 
+/* Order after compression: 
+            * Header  
+            * Last full chunk 
+            * Tail chunk  
+            * Full chunks
+            */
 
 using System;
 using System.IO;
 using System.Collections.Generic;
-using ICSharpCode.SharpZipLib.Zip.Compression; // Suggested by me to use :D
+using ICSharpCode.SharpZipLib.Zip.Compression; // use this :D
 
 public static class Compression
 {
-    private static readonly byte[] Header = new byte[] { 0x62, 0x6C, 0x7A, 0x32 }; // header of the compression
-    private const int MaxBlockSize = 0xFFFF; // 64KB max per block (UINT16)
+    private static readonly byte[] Header = new byte[] { 0x62, 0x6C, 0x7A, 0x32 }; // "blz2 in ASCII,"
+    private const int MaxBlockSize = 0xFFFF; // 64KB max per block
 
     public static byte[] LeCompression(byte[] inputData)
     {
@@ -28,14 +34,13 @@ public static class Compression
 
         List<byte[]> compressedBlocks = new List<byte[]>();
 
-
-        // Firstly Compress the Tail (head chunk)
+        // 1. Compress the Tail (head chunk)
         byte[] tailChunk = new byte[tailSize];
         Array.Copy(inputData, 0, tailChunk, 0, tailSize);
         byte[] compressedTail = DeflateCompress(tailChunk);
         compressedBlocks.Add(compressedTail);
 
-        // Follow by compressing the Full 64KB Blocks (body)
+        // 2. Compress Full 64KB Blocks (body)
         for (int i = 0; i < fullBlocks - 1; i++)
         {
             byte[] block = new byte[MaxBlockSize];
@@ -43,7 +48,7 @@ public static class Compression
             compressedBlocks.Add(DeflateCompress(block));
         }
 
-        // Finally, compresses Last Full 64KB Block (tail)
+        // 3. Compress Last Full 64KB Block (tail)
         if (fullBlocks > 0)
         {
             byte[] lastBlock = new byte[MaxBlockSize];
@@ -54,18 +59,12 @@ public static class Compression
 
         Console.WriteLine($"[Debug] Total Compressed Blocks: {compressedBlocks.Count}");
 
-        // Like LEGO, you should "Rearrange your Blocks" after use.
+        // 4: Rearrange Blocks. Like LEGO, you should "Rearrange your Blocks" after use.
         using (var outputStream = new MemoryStream())
         {
-            /* Order after compression: 
-             * Header  
-             * Last full chunk 
-             * Tail chunk  
-             * Full chunks
-             */
             outputStream.Write(Header, 0, Header.Length); 
 
-            
+            // Order: Header → Last full chunk → Tail chunk → Full chunks
             if (compressedBlocks.Count > 1)
                 outputStream.Write(compressedBlocks[compressedBlocks.Count - 1], 0, compressedBlocks[compressedBlocks.Count - 1].Length);
 
@@ -85,7 +84,7 @@ public static class Compression
     {
         using (var compressedStream = new MemoryStream())
         {
-            var deflater = new Deflater(Deflater.BEST_COMPRESSION, true); // No Zlib Header (I think it's called direct/raw)
+            var deflater = new Deflater(Deflater.BEST_COMPRESSION, true); // No Zlib Header
             deflater.SetInput(inputData);
             deflater.Finish();
 
@@ -96,14 +95,27 @@ public static class Compression
                 compressedStream.Write(buffer, 0, count);
             }
 
-            // Write the size of the compressed block in Little Endian (signed, or i forgot)
+            // Get compressed data
             byte[] compressedData = compressedStream.ToArray();
+
+
+            // I had to revamp this area multiple times, just to make it more compatible to the game
+            // Converted length to signed 16-bit (short) and store in Little Endian
+            // Ensures Little Endian format on this one.
+
+            short signedLength = (short)compressedData.Length; // Convert to signed short
+            byte[] sizeBytes = BitConverter.GetBytes(signedLength);
+
+            if (!BitConverter.IsLittleEndian)
+                Array.Reverse(sizeBytes); 
+
+            // Creating the final block with signed size prefix
             byte[] finalBlock = new byte[compressedData.Length + 2];
-            finalBlock[0] = (byte)(compressedData.Length & 0xFF);
-            finalBlock[1] = (byte)((compressedData.Length >> 8) & 0xFF);
+            Array.Copy(sizeBytes, 0, finalBlock, 0, 2);
             Array.Copy(compressedData, 0, finalBlock, 2, compressedData.Length);
 
             return finalBlock;
         }
     }
 }
+
