@@ -1,16 +1,25 @@
 #RES ARCHIVE Documentation (GOD EATER 2 PSP/Vita)
-~ WRITTEN IN JANUARY 10, 2025
+~ WRITTEN IN JANUARY 10, 2025, UPDATED IN FEB 27, 2025
 ~ By: Yamato Nagasaki 
 ~ With some help with: gil-unx, SkyBladeCloud, HaoJun/Randerion
 ~ some small support: DarkGD
+~ Tool used for my entire operation
+	-HxD
+	-Notepad++
+	-Python
+	-Visual Studio 2017
+	-Calculator (hell yeah)
+	-TR2 Editor (i use both from HaoJun/Randerion and nyirsh) >>>> https://github.com/HaoJun0823/GECV or https://github.com/HaoJun0823/GECV-OLD || https://github.com/nyirsh/GEBUtils
+	-GEBCS (from gil-unx, for reference on the basic RES structure) >>>> https://github.com/gil-unx/GEBCS
+
 
 |||||||||||||||||||||Contents of the Text|||||||||||||||||||||
-1. START [Line: 22]
-2. Entry Datas [Line: 42]
-3. Table Of Contents/TOC [Line: 56]
-4. Name Structure [Line: 113]
-5. Compression System [Line: 184]
-6. MODIFICATION Warnings // Conclusions [Line: 206]
+1. START [Line: 31]
+2. Entry Datas [Line: 51]
+3. Table Of Contents/TOC [Line: 65]
+4. Name Structure [Line: 122]
+5. Compression System [Line: 193]
+6. MODIFICATION Warnings // Conclusions [Line: 216]
 
 =============================================================================================================================================
 ? Notes: i wrote this for PSP/Vita Version of God Eater 2. just to note myself on what to do (despite having a PDF and PNG documentation lol)
@@ -28,7 +37,7 @@
 0x09 = Group Version: group version. that's it
 0x0A = Checksum: For the time being, i currently have no idea.
 0x0C = Version: version of the RES archive.
-0x10 = Datas: Mostly where the stuff are stored (compressed data, audios and more)
+0x10 = Datas: Mostly where the stuff are stored (compressed datas, audios and more)
 0x14 = Sideloading RES Offset: Seems like this one is for the DLC parts of the game.
 0x18 = Sideloading RES Size: Same with 0x14 but only mentions the size of that RES archive
 ---> if any files are modified within the DLC, the game will load the original/unmodified RES then loads the DLC version itself
@@ -41,7 +50,7 @@
 
 ====[Entry Datas]====
 ~ related to Group Offset's given offset, which is 0x20
-0x20 <-> 0x5F - mostly of all where the the Entry data is within that chunk/area. Separated in 8 bytes.
+Ranging in: 0x20 <-> 0x5F - mostly of all where the the Entry data is within that chunk/area. Separated in 8 bytes.
 Entry Offset: 4 bytes offset. leads you to where this data starts
 Entry Count: 4 bytes value. totals on how many that Entry uses. start from Entry Offset of course
 ---> Entry Count is important here, since you will need to count the Entries multiply (*) by 32 bytes.
