@@ -1,10 +1,12 @@
+# Mostly inspired on old gil-unx's GE2 extractor, tried to replicate it in many ways :)
+
 import struct
 import os
 import zlib
-import RTBL2  # Import the RTBL2.py module
+import RTBL2  # Import the rtbl.py module
 
 def read_string(f, offset):
-    """Read a UTF-8 string from the given offset until null byte, if valid."""
+    # Read a UTF-8 string from the given offset until null byte, if valid.
     f.seek(offset)
     if f.read(2) == b'\x00\x00':
         return None
@@ -18,7 +20,7 @@ def read_string(f, offset):
     return bytes_read.decode('utf-8', errors='ignore') or None
 
 def process_offset(f, offset, csize):
-    """Process TOC.Offset and calculate effective offset and end offset."""
+    # Process TOC.Offset and calculate effective offset and end offset.
     enumerator = (offset >> 28) & 0xF
     base_offset = offset & 0x0FFFFFFF
     
@@ -48,7 +50,7 @@ def process_offset(f, offset, csize):
     return effective_offset, end_offset, offset_type, is_compressed
 
 def generate_filename(name, type_str, path, subpath, extrapath, output_dir, used_names, chunkname):
-    """Generate file path and handle duplicates, respecting CHUNKNAME rules."""
+    # Generate file path and handle duplicates, respecting CHUNKNAME rules.
     base_filename = name
     if type_str:
         base_filename += f".{type_str}"
@@ -84,7 +86,9 @@ def generate_filename(name, type_str, path, subpath, extrapath, output_dir, used
     return final_path
 
 def decompress_blz2(data):
-    """Decompress BLZ2 data (single or multi-block)."""
+    # Decompression here
+    # Single block doesn't need rearrangement
+    # Multiple blocks needs rearrangement.
     if not data.startswith(b'blz2'):
         return data
     
@@ -113,7 +117,7 @@ def decompress_blz2(data):
     return b''
 
 def extract_data(f, start_offset, end_offset, output_path, is_compressed):
-    """Extract and optionally decompress data."""
+    # Extract and optionally decompress data.
     f.seek(start_offset)
     data_size = end_offset - start_offset
     data = f.read(data_size)
@@ -150,18 +154,19 @@ def read_res_file(file_path, processed_files=None):
     try:
         with open(file_path, 'rb') as f:
             header = struct.unpack('<I', f.read(4))[0]
-            if header != 0x73657250:
+            #data here is related to 0x00-0x1F
+            if header != 0x73657250: # Header of .res file. Pres in Little Endian
                 print(f"Invalid .RES file: Header {hex(header)}.")
                 return nested_res_files
             
-            group_offset = struct.unpack('<I', f.read(4))[0]
-            group_count = struct.unpack('<B', f.read(1))[0]
-            group_version = struct.unpack('<B', f.read(1))[0]
-            checksum = struct.unpack('<H', f.read(2))[0]
-            version = struct.unpack('<I', f.read(4))[0]
-            chunk_datas_offset = struct.unpack('<I', f.read(4))[0]
-            sideload_res_offset = struct.unpack('<I', f.read(4))[0]
-            sideload_res_size = struct.unpack('<I', f.read(4))[0]
+            group_offset = struct.unpack('<I', f.read(4))[0] #Group Offset - 4 bytes
+            group_count = struct.unpack('<B', f.read(1))[0] #Group Count - byte
+            group_version = struct.unpack('<B', f.read(1))[0] #Group Version - byte
+            checksum = struct.unpack('<H', f.read(2))[0] #Checksum - 2 bytes
+            version = struct.unpack('<I', f.read(4))[0] #Version - 4 bytes
+            chunk_datas_offset = struct.unpack('<I', f.read(4))[0] #Chunk - 4 bytes
+            sideload_res_offset = struct.unpack('<I', f.read(4))[0] #Sideload Offset - 4 bytes
+            sideload_res_size = struct.unpack('<I', f.read(4))[0] #Sideload Size - 4 bytes
             """ Debug 1
             print(f"File: {file_path}")
             print(f"Header: {hex(header)} ('Pers' in ASCII)")
@@ -187,7 +192,7 @@ def read_res_file(file_path, processed_files=None):
                 if group_chunk == b'\x00' * 8:
                     print(f"Group {i + 1}: [empty]")
                 else:
-                    entry_offset, entry_count = struct.unpack('<II', group_chunk)
+                    entry_offset, entry_count = struct.unpack('<II', group_chunk) # Entry Offset and Entry Count - 4 bytes each. total of 8 bytes
                     """ Debug 2
                     print(f"Group {i + 1}:")
                     print(f"  Entry Offset: {hex(entry_offset)} ({entry_offset})")
@@ -206,7 +211,8 @@ def read_res_file(file_path, processed_files=None):
                         if toc_chunk[:16] == b'\x00' * 16:
                             #print(f"    TOC {j + 1}: [empty]")
                             continue
-                        
+                        # Here is the TOC structure
+                        # All are 32 bytes per entry_count
                         toc_offset, toc_csize, toc_nameoffset, toc_chunkname, _, toc_dsize = struct.unpack('<IIII12sI', toc_chunk)
                         effective_offset, end_offset, offset_type, is_compressed = process_offset(f, toc_offset, toc_csize)
                         """ Debug 3
@@ -224,6 +230,8 @@ def read_res_file(file_path, processed_files=None):
                         print(f"      CHUNKNAME: {toc_chunkname}")
                         print(f"      DSIZE: {toc_dsize}")
                         """
+                        # here is the name structure. each of them have different purposes
+                        # i had to go in this kind of path to properly do this lol
                         name, type_str, path, subpath, extrapath = None, None, None, None, None
                         if toc_nameoffset != 0 and toc_chunkname > 0:
                             f.seek(toc_nameoffset)

@@ -1,3 +1,7 @@
+# To be honest, RTBL still has that TOC related values, so mostly in PRES_Loader.py
+# I've reused them. though mostly i changed the toc_nameoffset's purpose
+
+
 import struct
 import os
 import zlib
