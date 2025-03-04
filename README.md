@@ -26,10 +26,6 @@
 #### Base game files are required for extraction since the dlc uses a few important things in them.
 
 #### Changelog
-- Jan 05 2025 `->` added `RES_ARCHIVE` (old tool, simple extraction. just debugger stuff, written in C# Visual Studio 2017. yes that old and i only picked it up again on my old USB drive)
-- Feb 08 2025 `->` added some random python scripts
-- Feb 15 2025 `->` added some more python code 
-- Feb 23 2025 `->` added+updated PRES_PROT (supports PSP/Vita **EXCEPT ENGLISH VERSIONS due to RES archive differences**). And moved archived stuff outside here so people can see it :)
-- Feb 24 2025 `->` added Basic_Stuff with the sources too, this is my testing stages before PRES_PROT becomes public. Also added `RES_STRUCTURE` documentation in text. this is old as well lmao
-- Feb 25 2025 `->` added BLOCK_ZIP, compresses the file you gived for the game to actually use it.
 - March 2 2025 `->` Moved all python related stuff to the `PythonArea` folder. probably the best to do that and, updated/renamed the TXT Documentation of the RES STRUCTURE.
+
+- March 4 2025 `->` Removed Past logs. Added a few Python Scripts.
