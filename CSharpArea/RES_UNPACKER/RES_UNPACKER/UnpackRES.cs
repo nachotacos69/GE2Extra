@@ -22,7 +22,7 @@ namespace RES_UNPACKER
 
         public void ExtractFile(TOC.TOCEntry entry)
         {
-            if (entry.OffsetType == "NoSet (External RDP Exclusion)" || entry.OffsetType == "BIN/MODULE (External File)")
+            if (entry.OffsetType == "NoSet (External RDP Exclusion)" || entry.OffsetType == "BIN/MODULE (Or Empty)")
             {
                 Console.WriteLine($"Skipping extraction for {entry.Name} ({entry.OffsetType})");
                 return;
@@ -108,24 +108,36 @@ namespace RES_UNPACKER
             byte[] data = new byte[entry.CSize];
             Array.Copy(resFileData, (long)entry.ActualOffset, data, 0, (int)entry.CSize);
 
-            if (data.Length >= 4 && BitConverter.ToUInt32(data, 0) == 0x327A6C62) // blz2
+            if (data.Length >= 4)
             {
-                byte[] decompressedData = Deflate.DecompressBLZ2(data);
+                uint magic = BitConverter.ToUInt32(data, 0);
+                byte[] decompressedData = null;
+
+                if (magic == 0x327A6C62) // BLZ2
+                {
+                    decompressedData = Deflate.DecompressBLZ2(data);
+                }
+                else if (magic == 0x347A6C62) // BLZ4
+                {
+                    decompressedData = Deflate.DecompressBLZ4(data);
+                }
+
                 if (decompressedData != null)
                 {
                     File.WriteAllBytes(outputPath, decompressedData);
                     Console.WriteLine($"Extracted: {relativePath} (decompressed)");
+                    return;
                 }
-                else
+                else if (magic == 0x327A6C62 || magic == 0x347A6C62)
                 {
                     Console.WriteLine($"Error: Failed to decompress {entry.Name}");
+                    return;
                 }
             }
-            else
-            {
-                File.WriteAllBytes(outputPath, data);
-                Console.WriteLine($"Extracted: {relativePath}");
-            }
+
+            // If not compressed or decompression failed, write raw data
+            File.WriteAllBytes(outputPath, data);
+            Console.WriteLine($"Extracted: {relativePath}");
         }
 
         private void ExtractFromRDP(TOC.TOCEntry entry, string outputPath, string relativePath)
@@ -157,24 +169,36 @@ namespace RES_UNPACKER
                     return;
                 }
 
-                if (data.Length >= 4 && BitConverter.ToUInt32(data, 0) == 0x327A6C62) // blz2
+                if (data.Length >= 4)
                 {
-                    byte[] decompressedData = Deflate.DecompressBLZ2(data);
+                    uint magic = BitConverter.ToUInt32(data, 0);
+                    byte[] decompressedData = null;
+
+                    if (magic == 0x327A6C62) // BLZ2
+                    {
+                        decompressedData = Deflate.DecompressBLZ2(data);
+                    }
+                    else if (magic == 0x347A6C62) // BLZ4
+                    {
+                        decompressedData = Deflate.DecompressBLZ4(data);
+                    }
+
                     if (decompressedData != null)
                     {
                         File.WriteAllBytes(outputPath, decompressedData);
                         Console.WriteLine($"Extracted: {relativePath} (decompressed)");
+                        return;
                     }
-                    else
+                    else if (magic == 0x327A6C62 || magic == 0x347A6C62)
                     {
                         Console.WriteLine($"Error: Failed to decompress {entry.Name}");
+                        return;
                     }
                 }
-                else
-                {
-                    File.WriteAllBytes(outputPath, data);
-                    Console.WriteLine($"Extracted: {relativePath}");
-                }
+
+                // If not compressed or decompression failed, write raw data
+                File.WriteAllBytes(outputPath, data);
+                Console.WriteLine($"Extracted: {relativePath}");
             }
         }
 
@@ -206,7 +230,6 @@ namespace RES_UNPACKER
                     return;
 
                 Console.WriteLine($"Processing nested RES: {relativePath}");
-                // Use the .res file's parent directory and create a subfolder with its name
                 string nestedOutputFolder = Path.Combine(Path.GetDirectoryName(filePath), Path.GetFileNameWithoutExtension(fileName));
                 PRES nestedPres = new PRES();
                 nestedPres.ProcessRES(fileData, fileName, nestedOutputFolder);
@@ -219,7 +242,6 @@ namespace RES_UNPACKER
                 RTBL rtblProcessor = new RTBL(fileData, rtblOutputFolder);
                 List<string> extractedResFiles = rtblProcessor.ProcessRTBL();
 
-                // Immediately process extracted .res files from this RTBL
                 foreach (string resFile in extractedResFiles)
                 {
                     string resRelativePath = "." + resFile.Substring(Directory.GetCurrentDirectory().Length);

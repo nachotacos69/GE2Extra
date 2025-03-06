@@ -41,7 +41,7 @@ namespace RES_UNPACKER
                 switch (enumerator)
                 {
                     case 0x0:
-                        OffsetType = "BIN/MODULE (External File)";
+                        OffsetType = "BIN/MODULE (Or Empty)";
                         ActualOffset = 0x00000000;
                         break;
                     case 0x3:
