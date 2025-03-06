@@ -19,12 +19,10 @@
 
 ## Extraction Methods:
 ~ Base Game: (uses `package.rdp, data.rdp, system.res`)
-
 ~ DLC: (uses `package.rdp, data.rdp, patch.rdp, system_update.res`)
-~ For DLC CSharp_Ver1: if you want to extract the game data related without the data.rdp. create a a file matching with the name and leave it empty
-Note: 
+
 
 #### Changelog
 - March 2 2025 `->` Moved all python related stuff to the `PythonArea` folder. probably the best to do that and, updated/renamed the TXT Documentation of the RES STRUCTURE.
-
 - March 4 2025 `->` Removed Past logs. Added a few Python Scripts.
+- March 5 2025 `->` Added some C# codes.
