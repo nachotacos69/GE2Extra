@@ -32,7 +32,9 @@ namespace RES_UNPACKER
                 DSize = dsize;
                 ProcessOffset();
             }
-
+            /* Not that offset is always correct when inspect it through HxD
+             * You'll need to strip/nibble the enumator or the first value of that offset
+             */
             private void ProcessOffset()
             {
                 byte enumerator = (byte)(Offset >> 28);
@@ -48,6 +50,8 @@ namespace RES_UNPACKER
                         OffsetType = "NoSet (External RDP Exclusion)";
                         ActualOffset = 0x30000000;
                         break;
+                        // For offset that have enumators set to the RDP files, the offsets needs to be multiplied
+                        // to give the correct offset. original offsets you see are usually just divided version.
                     case 0x4:
                         OffsetType = "RDP Package File";
                         ActualOffset = (ulong)baseOffset * 0x800;
@@ -153,6 +157,7 @@ namespace RES_UNPACKER
         {
             try
             {
+                // TOC Structure here
                 uint offset = reader.ReadUInt32();
                 uint csize = reader.ReadUInt32();
                 uint nameOffset = reader.ReadUInt32();
@@ -175,7 +180,7 @@ namespace RES_UNPACKER
             reader.BaseStream.Position = entry.NameOffset;
             if (reader.BaseStream.Position + 20 > reader.BaseStream.Length)
                 return false;
-
+            // Name Structure here, will only show and give the correct details if chunkName value matches with the cases 
             uint nameOffset = reader.ReadUInt32();
             uint typeOffset = reader.ReadUInt32();
             uint pathOffset = reader.ReadUInt32();

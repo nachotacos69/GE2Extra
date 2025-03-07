@@ -24,7 +24,7 @@
 =============================================================================================================================================
 ? Notes: i wrote this for PSP/Vita Version of God Eater 2. just to note myself on what to do (despite having a PDF and PNG documentation lol)
 ? if some don't match, you can try to mess around and document it too.
-!! Keep in Mind: PC/PS4, or those with MULTI language is not supported here. i barely interacted with them :(
+!! Keep in Mind: PC/PS4, or those with MULTI language RES File is not supported here. i barely interacted with them :(
 
 
 
@@ -38,9 +38,9 @@
 0x0A = Checksum: For the time being, i currently have no idea.
 0x0C = Version: version of the RES archive.
 0x10 = Datas: Mostly where the stuff are stored (compressed datas, audios and more)
-0x14 = Sideloading RES Offset: Seems like this one is for the DLC parts of the game.
-0x18 = Sideloading RES Size: Same with 0x14 but only mentions the size of that RES archive
----> if any files are modified within the DLC, the game will load the original/unmodified RES then loads the DLC version itself
+0x14 = Sideloading RES Offset: Seems like this one is for the DLC RES files of the game.
+0x18 = Sideloading RES Size: Same with 0x14 but only mentions the size of that RES file
+---> if any files that are modified and included within the DLC, the game will load the original/unmodified RES then loads the DLC version itself, or the opposite
 ---> Im not entirely sure but you can double check :)
 0x1C = ??
 
@@ -79,13 +79,13 @@ Sample HEX structure of TOC:
 !! When reading these enumerators. they are not included when you search for them. to pinpoint the actual offset, you need to eliminate that first value.
 !! Then you get the offset you need for the entire operation. Example: 0xF0000000 (remove 0xF). then result will be 0x0FFFFFFF. (doesnt apply on NoSet and Unknown)
 
-~ Unknown (i usually refer to this as Outsider)
+~ BIN/MODULE
 ---> 0x0 refers to a outside file (offset will give 0x00000000 by default). since it already exists within folders but doesn't get mention in the archive.
-----> But probably when the game runs, it searches for that specific file. (usually happens commonly in the VITA side).
+----> But probably when the game runs, it searches for that specific file. (usually happens commonly in the PSVITA side).
 
 ~ NoSet
 ---> 0x3 refers to a Exclusion of file outside RDP (offset will give 0x30000000 by default). This one is unique since it refers to the files outside of the RDP file. 
-----> You can find their paths based on it's Name Offset. but probably still important. (usually happens commonly in the VITA side).
+----> You can find their paths based on it's Name Offset. but probably still important. (usually happens commonly in the PSVITA side).
 
 ~ RDP Files
 ---> 0x4 refers to the PACKAGE file || 0x5 refers to the DATA file || 0x6 refers to the PATCH file (named patch.edat in DLC but you can rename it in rdp format).

@@ -1,4 +1,11 @@
-﻿using System;
+﻿/* RTBL files are scattered throughout
+ * it doesnt have proper or given offset or other key details to pinpoint the data you need
+ * they are separated with a bunch of zeroes/paddings (16 bytes)
+ * they still use TOC related data but for the name offset, i only changed it a bit
+ */
+
+
+using System;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
@@ -90,6 +97,10 @@ namespace RES_UNPACKER
             if (namePosition + 12 > rtblData.Length)
                 return null;
 
+
+            /* Here, i decided to add 0xC skip, since the bytes of every name structure in TOC is mostly the same 
+             * They have repetitive values, which doesn't match with the current offset they are located so i skip them
+             */
             reader.BaseStream.Position = namePosition;
             reader.ReadBytes(12); // Skip 12 bytes (0xC) of name structure offsets
 
@@ -193,21 +204,7 @@ namespace RES_UNPACKER
 
             byte[] data = new byte[entry.CSize];
             Array.Copy(rtblData, (long)actualOffset, data, 0, (int)entry.CSize);
-
-            if (data.Length >= 4 && BitConverter.ToUInt32(data, 0) == 0x327A6C62) // blz2
-            {
-                byte[] decompressedData = Deflate.DecompressBLZ2(data);
-                if (decompressedData != null)
-                {
-                    File.WriteAllBytes(outputPath, decompressedData);
-                    Console.WriteLine($"[DEBUG] Extracted: {relativePath} (decompressed)");
-                }
-                else
-                {
-                    Console.WriteLine($"Error: Failed to decompress {entry.Name}");
-                }
-            }
-            else
+  
             {
                 File.WriteAllBytes(outputPath, data);
                 Console.WriteLine($"[DEBUG] Extracted: {relativePath}");
@@ -243,20 +240,7 @@ namespace RES_UNPACKER
                     return;
                 }
 
-                if (data.Length >= 4 && BitConverter.ToUInt32(data, 0) == 0x327A6C62) // blz2
-                {
-                    byte[] decompressedData = Deflate.DecompressBLZ2(data);
-                    if (decompressedData != null)
-                    {
-                        File.WriteAllBytes(outputPath, decompressedData);
-                        Console.WriteLine($"[DEBUG] Extracted: {relativePath} (decompressed)");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[DEBUG] Error: Failed to decompress {entry.Name}");
-                    }
-                }
-                else
+
                 {
                     File.WriteAllBytes(outputPath, data);
                     Console.WriteLine($"[DEBUG] Extracted: {relativePath}");

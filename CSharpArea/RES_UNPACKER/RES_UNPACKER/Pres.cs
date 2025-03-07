@@ -6,7 +6,7 @@ namespace RES_UNPACKER
 {
     class PRES
     {
-        private const int HEADER_MAGIC = 0x73657250;
+        private const int HEADER_MAGIC = 0x73657250; //RES file header: PRES in little endian
 
         public int GroupOffset { get; private set; }
         public byte GroupCount { get; private set; }
@@ -35,13 +35,17 @@ namespace RES_UNPACKER
                     if (ms.Position + 28 > ms.Length)
                         throw new Exception("File too short to contain full header");
 
+
+                    // RES File structure (after header)
+                    // i don't know how to properly explain SideloadRes related stuff
+                    // i'm still trying my best to understand the Checksum
                     GroupOffset = reader.ReadInt32();
                     GroupCount = reader.ReadByte();
                     GroupVersion = reader.ReadByte();
                     Checksum = reader.ReadInt16();
                     Version = reader.ReadInt32();
                     ChunkDatasOffset = reader.ReadUInt32();
-                    SideloadResOffset = reader.ReadUInt32();
+                    SideloadResOffset = reader.ReadUInt32(); 
                     SideloadResSize = reader.ReadUInt32();
 
                 //DEBUG    PrintHeaderInfo();
@@ -85,8 +89,10 @@ namespace RES_UNPACKER
             {
                 if (reader.BaseStream.Position + 8 > reader.BaseStream.Length)
                     throw new Exception($"Not enough data to read group {i + 1} (need 8 bytes, position 0x{reader.BaseStream.Position:X8})");
-
-                uint entryOffset = reader.ReadUInt32();
+                // Entry related datas. 8 bytes in total, separate by 4 bytes
+                // you'll see this stuff when you positioned yourself from the given `GroupOffset`
+                // though you'll see 8 bytes empty Groups, but it's normal
+                uint entryOffset = reader.ReadUInt32(); 
                 uint entryCount = reader.ReadUInt32();
                 Groups.Add(new GroupData(entryOffset, entryCount));
             }

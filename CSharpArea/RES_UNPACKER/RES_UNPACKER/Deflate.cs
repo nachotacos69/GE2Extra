@@ -12,6 +12,13 @@ namespace RES_UNPACKER
         private const uint BLZ4_MAGIC = 0x347A6C62; // "blz4" in little-endian
 
         public static byte[] DecompressBLZ2(byte[] compressedData)
+/*
+ * as for this one, it's a just a basic zlib compression with no header. so you'll need the raw block
+ * sturcture (in order)
+ * [Header or BLZ2_MAGIC]
+ * [2 bytes of `compressedSize` value]
+ * [compressed blocks, block size matches with 2 bytes compressed size value]
+*/
         {
             if (compressedData == null || compressedData.Length < 6 || BitConverter.ToUInt32(compressedData, 0) != BLZ2_MAGIC)
             {
@@ -51,6 +58,12 @@ namespace RES_UNPACKER
                     if (blocks.Count == 0)
                         return null;
 
+/* In most cases, you'll encounter multiple blocks. the structure is the same as for those single block but stacked in some order
+* [header][2 bytes compressedSize][compressed block] || [another compressedSize][another compressed block]
+* In case of scenario encountering a of something like this, you will need to arrange those blocks in proper manner
+* for compressed, block order should be: 01234567 || for decompression, block order should be: 12345670
+* Failure to do so will make the file jumble, the header of a will be sometimes positioned at 0x10000 or 0x20000
+*/
                     if (blocks.Count == 1)
                     {
                         return blocks[0];
@@ -78,6 +91,18 @@ namespace RES_UNPACKER
                 return null; // Decompression failed
             }
         }
+
+/*
+ * BLZ4 decompression uses `ComponentAce.Compression.Libs.zlib`. rather than your regular DeflateStream
+ * sturcture (in order)
+ * [Header or BLZ4_MAGIC]
+ * [4 bytes of unpack size]
+ * [8 bytes of zeroes]
+ * [16 bytes of MD5]
+ * [2 bytes compressed size value]
+ * [compressed blocks, block size matches with 2 bytes compressed size value]
+ * if im correct, this is the correct structure, for now, since i mostly focused on the PSP version of the game.
+*/
 
         public static byte[] DecompressBLZ4(byte[] compressedData)
         {
