@@ -26,3 +26,4 @@
 - March 2 2025 `->` Moved all python related stuff to the `PythonArea` folder. probably the best to do that and, updated/renamed the TXT Documentation of the RES STRUCTURE.
 - March 4 2025 `->` Removed Past logs. Added a few Python Scripts.
 - March 5 2025 `->` Added some C# codes.
+- March 8 2025 `->` Added RES_PACKER. prototype of repacking the game files, not finished.
