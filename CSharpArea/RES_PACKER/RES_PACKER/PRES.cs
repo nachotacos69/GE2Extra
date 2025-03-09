@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace RES_PACKER
 {
-    public class PRES // Changed from 'class PRES' to 'public class PRES'
+    public class PRES
     {
         public const int HEADER_MAGIC = 0x73657250;
 
@@ -17,6 +17,7 @@ namespace RES_PACKER
         public uint SideloadResOffset { get; private set; }
         public uint SideloadResSize { get; private set; }
         public List<GroupData> Groups { get; private set; } = new List<GroupData>();
+        private static bool isRootProcessed = false;
 
         public void ProcessRES(byte[] fileData, string fileName, string outputFolder)
         {
@@ -46,7 +47,7 @@ namespace RES_PACKER
                     SideloadResOffset = reader.ReadUInt32();
                     SideloadResSize = reader.ReadUInt32();
 
-                    dataHelper.SetHeaderData(this); // Collect header data
+                    dataHelper.SetHeaderData(this);
 
                     PrintHeaderInfo();
 
@@ -60,6 +61,8 @@ namespace RES_PACKER
                         PrintGroups();
 
                         TOC toc = new TOC(fileData, fileName, outputFolder, dataHelper);
+                        UnpackRES unpacker = new UnpackRES(fileData, fileName, outputFolder, dataHelper);
+
                         foreach (var group in Groups)
                         {
                             if (group.EntryCount > 0 && group.EntryOffset > 0)
@@ -71,8 +74,13 @@ namespace RES_PACKER
                             }
                         }
 
-                        UnpackRES unpacker = new UnpackRES(fileData, fileName, outputFolder, dataHelper);
-                        dataHelper.SaveToJson(); // Save after unpacking
+                        dataHelper.SaveToJson();
+                    }
+
+                    if (!isRootProcessed && fileName.EndsWith("system.res", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isRootProcessed = true;
+                        UnpackRES.SaveResIndex();
                     }
                 }
             }
@@ -93,7 +101,7 @@ namespace RES_PACKER
                 uint entryOffset = reader.ReadUInt32();
                 uint entryCount = reader.ReadUInt32();
                 Groups.Add(new GroupData(entryOffset, entryCount));
-                dataHelper.AddGroup(entryOffset, entryCount); // Collect group data
+                dataHelper.AddGroup(entryOffset, entryCount);
             }
         }
 

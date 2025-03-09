@@ -100,7 +100,18 @@ namespace RES_PACKER
                 UpdateRESFile(fileEntry, actualOffset, finalData, newCSize, newDSize, resStream);
             }
 
-            UpdateTOC(fileEntry, resStream, newCSize, newDSize);
+            // Adjust newCSize for TOC to the aligned size
+            uint alignedCSize = AlignTo0xF(newCSize);
+            UpdateTOC(fileEntry, resStream, alignedCSize, newDSize);
+        }
+
+        private uint AlignTo0xF(uint size)
+        {
+            // Align size to the next 0xF boundary
+            uint remainder = size % 16; // 0x10 = 16 bytes
+            if (remainder == 0)
+                return size;
+            return size + (16 - remainder);
         }
 
         private void UpdateRESFile(DataHelper.FileEntry fileEntry, uint actualOffset, byte[] newData, uint newCSize, uint newDSize, FileStream resStream)
@@ -112,33 +123,47 @@ namespace RES_PACKER
             }
 
             resStream.Seek(actualOffset, SeekOrigin.Begin);
-            resStream.Write(newData, 0, (int)newCSize);
-
-            if (newCSize < fileEntry.CSize)
+            uint alignedCSize = AlignTo0xF(newCSize);
+            if (newCSize <= fileEntry.CSize)
             {
-                uint endOffset = actualOffset + newCSize;
-                uint nextBoundary = (uint)((endOffset + 0xF) & ~0xF); // Align to next 0xF boundary
-                uint paddingSize = nextBoundary - endOffset;
-
-                if (paddingSize > 0)
+                resStream.Write(newData, 0, (int)newCSize);
+                if (alignedCSize > newCSize)
                 {
+                    uint paddingSize = alignedCSize - newCSize;
                     byte[] padding = new byte[paddingSize];
                     Array.Clear(padding, 0, (int)paddingSize);
                     resStream.Write(padding, 0, (int)paddingSize);
-                    Console.WriteLine($"Padded 0x{endOffset:X8}-0x{nextBoundary:X8} with {paddingSize} zeros to reach next 0xF boundary");
+                    Console.WriteLine($"Padded 0x{actualOffset + newCSize:X8}-0x{actualOffset + alignedCSize:X8} with {paddingSize} zeros to align to 0xF");
                 }
             }
-            else if (newCSize > fileEntry.CSize)
+            else
             {
-                if (CheckRESOffsetFit(fileEntry, actualOffset, newCSize, resStream))
+                if (CheckRESOffsetFit(fileEntry, actualOffset, alignedCSize, resStream))
                 {
-                    Console.WriteLine($"Fit new data at 0x{actualOffset:X8}-0x{actualOffset + newCSize:X8} without shifting");
+                    resStream.Write(newData, 0, (int)newCSize);
+                    if (alignedCSize > newCSize)
+                    {
+                        uint paddingSize = alignedCSize - newCSize;
+                        byte[] padding = new byte[paddingSize];
+                        Array.Clear(padding, 0, (int)paddingSize);
+                        resStream.Write(padding, 0, (int)paddingSize);
+                        Console.WriteLine($"Padded 0x{actualOffset + newCSize:X8}-0x{actualOffset + alignedCSize:X8} with {paddingSize} zeros to align to 0xF");
+                    }
+                    Console.WriteLine($"Fit new data at 0x{actualOffset:X8}-0x{actualOffset + alignedCSize:X8} without shifting");
                 }
                 else
                 {
-                    ShiftDataInRES(resStream, actualOffset, fileEntry.CSize, newCSize);
+                    ShiftDataInRES(resStream, actualOffset, fileEntry.CSize, alignedCSize);
                     resStream.Seek(actualOffset, SeekOrigin.Begin);
                     resStream.Write(newData, 0, (int)newCSize);
+                    if (alignedCSize > newCSize)
+                    {
+                        uint paddingSize = alignedCSize - newCSize;
+                        byte[] padding = new byte[paddingSize];
+                        Array.Clear(padding, 0, (int)paddingSize);
+                        resStream.Write(padding, 0, (int)paddingSize);
+                        Console.WriteLine($"Padded 0x{actualOffset + newCSize:X8}-0x{actualOffset + alignedCSize:X8} with {paddingSize} zeros to align to 0xF");
+                    }
                 }
             }
         }
@@ -170,47 +195,69 @@ namespace RES_PACKER
                 }
 
                 rdpStream.Seek(actualOffset, SeekOrigin.Begin);
-                rdpStream.Write(newData, 0, (int)newCSize);
-
-                if (newCSize < fileEntry.CSize)
+                uint alignedCSize = AlignTo0xF(newCSize);
+                if (newCSize <= fileEntry.CSize)
                 {
-                    uint endOffset = actualOffset + newCSize;
-                    uint nextBoundary = (uint)((endOffset + 0xF) & ~0xF); // Align to next 0xF boundary
-                    uint paddingSize = nextBoundary - endOffset;
-
-                    if (paddingSize > 0)
+                    rdpStream.Write(newData, 0, (int)newCSize);
+                    if (alignedCSize > newCSize)
                     {
+                        uint paddingSize = alignedCSize - newCSize;
                         byte[] padding = new byte[paddingSize];
                         Array.Clear(padding, 0, (int)paddingSize);
                         rdpStream.Write(padding, 0, (int)paddingSize);
-                        Console.WriteLine($"Padded 0x{endOffset:X8}-0x{nextBoundary:X8} with {paddingSize} zeros to reach next 0xF boundary");
+                        Console.WriteLine($"Padded 0x{actualOffset + newCSize:X8}-0x{actualOffset + alignedCSize:X8} with {paddingSize} zeros to align to 0xF");
                     }
                 }
-                else if (newCSize > fileEntry.CSize)
+                else
                 {
-                    if (CheckRDPOffsetFit(fileEntry, actualOffset, newCSize))
+                    if (CheckRDPOffsetFit(fileEntry, actualOffset, alignedCSize))
                     {
-                        Console.WriteLine($"Fit new data at 0x{actualOffset:X8}-0x{actualOffset + newCSize:X8} without shifting");
+                        rdpStream.Write(newData, 0, (int)newCSize);
+                        if (alignedCSize > newCSize)
+                        {
+                            uint paddingSize = alignedCSize - newCSize;
+                            byte[] padding = new byte[paddingSize];
+                            Array.Clear(padding, 0, (int)paddingSize);
+                            rdpStream.Write(padding, 0, (int)paddingSize);
+                            Console.WriteLine($"Padded 0x{actualOffset + newCSize:X8}-0x{actualOffset + alignedCSize:X8} with {paddingSize} zeros to align to 0xF");
+                        }
+                        Console.WriteLine($"Fit new data at 0x{actualOffset:X8}-0x{actualOffset + alignedCSize:X8} without shifting");
                     }
-                    else if (CheckRDPOffsetOverlap(fileEntry, actualOffset, newCSize))
+                    else if (CheckRDPOffsetOverlap(fileEntry, actualOffset, alignedCSize))
                     {
-                        uint newActualOffset = FindNewRDPOffset(actualOffset, newCSize);
+                        uint newActualOffset = FindNewRDPOffset(actualOffset, alignedCSize);
                         Console.WriteLine($"Offset overlap detected for {fileEntry.FileName}, reassigning to OFFSET: 0x{newActualOffset:X8}");
                         fileEntry.Offset = (fileEntry.Offset & 0xF0000000) | (newActualOffset / 0x800);
                         actualOffset = newActualOffset;
 
-                        if (actualOffset + newCSize > rdpStream.Length)
+                        if (actualOffset + alignedCSize > rdpStream.Length)
                         {
-                            rdpStream.SetLength(actualOffset + newCSize);
+                            rdpStream.SetLength(actualOffset + alignedCSize);
                         }
                         rdpStream.Seek(actualOffset, SeekOrigin.Begin);
                         rdpStream.Write(newData, 0, (int)newCSize);
+                        if (alignedCSize > newCSize)
+                        {
+                            uint paddingSize = alignedCSize - newCSize;
+                            byte[] padding = new byte[paddingSize];
+                            Array.Clear(padding, 0, (int)paddingSize);
+                            rdpStream.Write(padding, 0, (int)paddingSize);
+                            Console.WriteLine($"Padded 0x{actualOffset + newCSize:X8}-0x{actualOffset + alignedCSize:X8} with {paddingSize} zeros to align to 0xF");
+                        }
                     }
                     else
                     {
-                        ShiftDataInRDP(rdpStream, actualOffset, fileEntry.CSize, newCSize);
+                        ShiftDataInRDP(rdpStream, actualOffset, fileEntry.CSize, alignedCSize);
                         rdpStream.Seek(actualOffset, SeekOrigin.Begin);
                         rdpStream.Write(newData, 0, (int)newCSize);
+                        if (alignedCSize > newCSize)
+                        {
+                            uint paddingSize = alignedCSize - newCSize;
+                            byte[] padding = new byte[paddingSize];
+                            Array.Clear(padding, 0, (int)paddingSize);
+                            rdpStream.Write(padding, 0, (int)paddingSize);
+                            Console.WriteLine($"Padded 0x{actualOffset + newCSize:X8}-0x{actualOffset + alignedCSize:X8} with {paddingSize} zeros to align to 0xF");
+                        }
                     }
                 }
             }

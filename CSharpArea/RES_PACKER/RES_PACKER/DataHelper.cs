@@ -40,21 +40,23 @@ namespace RES_PACKER
             public uint OffsetName { get; set; }
             public uint ChunkName { get; set; }
             public uint DSize { get; set; }
-            public List<string> ElementName { get; set; } = new List<string> { null, null, null }; // [name, type, path]
+            public List<string> ElementName { get; set; } = new List<string> { null, null, null };
             public string FileName { get; set; }
             public bool Compression { get; set; }
         }
 
         private readonly ResFileData data = new ResFileData();
+        private readonly string resFilePath;
 
-        public DataHelper(string resFileName)
+        public DataHelper(string resFilePath)
         {
-            data.Filename = ".\\" + Path.GetFileName(resFileName);
+            this.resFilePath = resFilePath;
+            data.Filename = GetRelativePath(resFilePath);
         }
 
         public void SetHeaderData(PRES pres)
         {
-            data.Header = PRES.HEADER_MAGIC; // 0x73657250 = 1936028240 in decimal
+            data.Header = PRES.HEADER_MAGIC;
             data.GroupOffset = pres.GroupOffset;
             data.GroupCount = pres.GroupCount;
             data.GroupVersion = pres.GroupVersion;
@@ -82,9 +84,7 @@ namespace RES_PACKER
                 OffsetName = entry.NameOffset,
                 ChunkName = entry.ChunkName,
                 DSize = entry.DSize,
-                FileName = extractedFilePath != null && extractedFilePath.StartsWith(Directory.GetCurrentDirectory())
-                    ? "." + extractedFilePath.Substring(Directory.GetCurrentDirectory().Length)
-                    : extractedFilePath,
+                FileName = extractedFilePath != null ? GetRelativePath(extractedFilePath) : null,
                 Compression = isCompressed
             };
 
@@ -118,7 +118,7 @@ namespace RES_PACKER
                 OffsetName = 0,
                 ChunkName = 0,
                 DSize = entry.DSize,
-                FileName = null, // No file extracted
+                FileName = null,
                 Compression = false
             };
 
@@ -128,10 +128,22 @@ namespace RES_PACKER
 
         public void SaveToJson()
         {
-            string jsonFileName = Path.ChangeExtension(data.Filename, ".json");
+            string jsonFileName = Path.Combine(Path.GetDirectoryName(resFilePath), Path.GetFileNameWithoutExtension(resFilePath) + ".json");
             string json = JsonConvert.SerializeObject(data, Formatting.Indented);
             File.WriteAllText(jsonFileName, json);
             Console.WriteLine($"Saved RES file data to {jsonFileName}");
+        }
+
+        private string GetRelativePath(string fullPath)
+        {
+            string currentDir = Directory.GetCurrentDirectory();
+            if (fullPath.StartsWith(currentDir))
+            {
+                int startIndex = currentDir.Length;
+                if (startIndex < fullPath.Length)
+                    return "." + fullPath.Substring(startIndex);
+            }
+            return fullPath; // Fallback to full path if it doesn't start with current directory
         }
     }
 }
