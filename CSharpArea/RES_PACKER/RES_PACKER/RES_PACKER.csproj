@@ -68,7 +68,7 @@
     <Compile Include="Compression.cs" />
     <Compile Include="DataHelper.cs" />
     <Compile Include="Deflate.cs" />
-    <Compile Include="PackRES.cs" />
+    <Compile Include="PackRES_EX.cs" />
     <Compile Include="PRES.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

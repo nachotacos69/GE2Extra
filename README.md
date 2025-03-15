@@ -24,4 +24,4 @@
 
 #### Changelog
 - March 8 2025 `->` Added RES_PACKER. prototype of repacking the game files, not finished.
-- March 9 2025 `->` Removed some past changelogs, Updated a few things in RES_PACKER
+- March 15 2025 `->` Updated a few things in RES_PACKER

@@ -34,27 +34,13 @@ namespace RES_PACKER
                 byte enumerator = (byte)(Offset >> 28);
                 switch (enumerator)
                 {
-                    case 0x0:
-                        OffsetType = "BIN/MODULE (External File)";
-                        break;
-                    case 0x4:
-                        OffsetType = "RDP Package File";
-                        break;
-                    case 0x5:
-                        OffsetType = "RDP Data File";
-                        break;
-                    case 0x6:
-                        OffsetType = "RDP Patch File";
-                        break;
-                    case 0xC:
-                        OffsetType = "Current RES File";
-                        break;
-                    case 0xD:
-                        OffsetType = "Current RES File";
-                        break;
-                    default:
-                        OffsetType = "NoSet (External RDP Exclusion)";
-                        break;
+                    case 0x0: OffsetType = "BIN/MODULE (External File)"; break;
+                    case 0x4: OffsetType = "RDP Package File"; break;
+                    case 0x5: OffsetType = "RDP Data File"; break;
+                    case 0x6: OffsetType = "RDP Patch File"; break;
+                    case 0xC: OffsetType = "Current RES File"; break;
+                    case 0xD: OffsetType = "Current RES File"; break;
+                    default: OffsetType = "NoSet (External RDP Exclusion)"; break;
                 }
             }
 
@@ -71,18 +57,23 @@ namespace RES_PACKER
         private readonly byte[] fileData;
         private readonly UnpackRES unpacker;
         private readonly DataHelper dataHelper;
+        private readonly string outputFolder;
 
         public TOC(byte[] fileData, string resFileName, string outputFolder, DataHelper dataHelper)
         {
-            this.fileData = fileData;
+            this.fileData = fileData ?? throw new ArgumentNullException(nameof(fileData));
             this.unpacker = new UnpackRES(fileData, resFileName, outputFolder, dataHelper);
-            this.dataHelper = dataHelper;
+            this.dataHelper = dataHelper ?? throw new ArgumentNullException(nameof(dataHelper));
+            this.outputFolder = outputFolder;
         }
 
-        public void ProcessGroup(GroupData group)
+        public (List<TOCEntry> entries, List<(string path, uint entryCount)> nestedFiles) ProcessGroup(GroupData group)
         {
+            List<TOCEntry> entries = new List<TOCEntry>();
+            List<(string path, uint entryCount)> nestedFiles = new List<(string, uint)>(); // Preserve order
+
             if (group.EntryCount == 0 || group.EntryOffset == 0)
-                return;
+                return (entries, nestedFiles);
 
             using (MemoryStream ms = new MemoryStream(fileData))
             using (BinaryReader reader = new BinaryReader(ms))
@@ -90,7 +81,7 @@ namespace RES_PACKER
                 if (group.EntryOffset >= ms.Length)
                 {
                     Console.WriteLine($"Error: Group EntryOffset 0x{group.EntryOffset:X8} exceeds file length 0x{ms.Length:X8}");
-                    return;
+                    return (entries, nestedFiles);
                 }
 
                 ms.Position = group.EntryOffset;
@@ -112,11 +103,22 @@ namespace RES_PACKER
                         break;
                     }
 
-                    // Only skip if ALL fields, including DSize, are zero
-                    if (entry.Offset == 0 && entry.CSize == 0 && entry.NameOffset == 0 && entry.ChunkName == 0 && entry.DSize == 0)
+                    bool isDummy = entry.Offset == 0 && entry.CSize == 0 && entry.NameOffset == 0 && entry.ChunkName == 0 && entry.DSize > 0;
+                    bool isFullyZeroed = entry.Offset == 0 && entry.CSize == 0 && entry.NameOffset == 0 && entry.ChunkName == 0 && entry.DSize == 0;
+
+                    if (isFullyZeroed)
                     {
                         Console.WriteLine($"TOC Entry {i + 1}: Empty (fully zeroed)");
                         ms.Position = entryStart + 32;
+                        continue;
+                    }
+
+                    if (isDummy)
+                    {
+                        Console.WriteLine($"Detected dummy entry: DSize = {entry.DSize}");
+                        dataHelper.AddDummyFileEntry(entry);
+                        ms.Position = entryStart + 32;
+                        entries.Add(entry);
                         continue;
                     }
 
@@ -130,10 +132,71 @@ namespace RES_PACKER
                     }
 
                     PrintTOCEntry(i + 1, entry);
-                    unpacker.ExtractFile(entry); // Process all entries, including dummies
+                    entries.Add(entry);
+                    unpacker.ExtractFile(entry); // Extract immediately
+
+                    // Track nested files in order
+                    string fullPath = GenerateFullPath(entry);
+                    string extension = Path.GetExtension(fullPath).ToLower();
+                    if (extension == ".res" || extension == ".rtbl")
+                    {
+                        nestedFiles.Add((fullPath, GetNestedEntryCount(fullPath)));
+                    }
+
                     ms.Position = entryStart + 32;
                 }
             }
+
+            return (entries, nestedFiles);
+        }
+
+        private uint GetNestedEntryCount(string filePath)
+        {
+            if (!File.Exists(filePath))
+                return 0;
+
+            byte[] fileData = File.ReadAllBytes(filePath);
+            using (MemoryStream ms = new MemoryStream(fileData))
+            using (BinaryReader reader = new BinaryReader(ms))
+            {
+                if (ms.Length < 16) // Header size up to GroupCount
+                    return 0;
+
+                int magic = reader.ReadInt32();
+                if (magic != PRES.HEADER_MAGIC)
+                    return 0; // Not a valid .res file
+
+                int groupOffset = reader.ReadInt32();
+                byte groupCount = reader.ReadByte();
+                if (groupCount == 0 || groupOffset >= ms.Length)
+                    return 0;
+
+                ms.Position = groupOffset;
+                if (ms.Position + 8 > ms.Length)
+                    return 0;
+
+                uint entryOffset = reader.ReadUInt32();
+                uint entryCount = reader.ReadUInt32();
+                return entryCount;
+            }
+        }
+
+        private string GenerateFullPath(TOCEntry entry)
+        {
+            string fileName = entry.Type != null ? $"{entry.Name}.{entry.Type}" : entry.Name ?? "unnamed";
+            if (entry.SubPath != null)
+            {
+                string[] subPathParts = entry.SubPath.Split('/');
+                string lastPart = subPathParts[subPathParts.Length - 1];
+                if (lastPart == fileName)
+                    return Path.Combine(outputFolder, entry.SubPath);
+                return Path.Combine(outputFolder, entry.SubPath, fileName);
+            }
+            else if (entry.Path != null)
+            {
+                return Path.Combine(outputFolder, entry.Path, fileName);
+            }
+            return Path.Combine(outputFolder, fileName);
         }
 
         private TOCEntry ReadTOCEntry(BinaryReader reader)

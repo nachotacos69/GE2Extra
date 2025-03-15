@@ -58,6 +58,7 @@ namespace RES_PACKER
 
                         ms.Position = GroupOffset;
                         ProcessGroups(reader, GroupCount, dataHelper);
+                        Groups.Sort((a, b) => b.EntryCount.CompareTo(a.EntryCount));
                         PrintGroups();
 
                         TOC toc = new TOC(fileData, fileName, outputFolder, dataHelper);
@@ -71,6 +72,7 @@ namespace RES_PACKER
                                     throw new Exception($"EntryOffset (0x{group.EntryOffset:X8}) exceeds file length (0x{ms.Length:X8})");
 
                                 toc.ProcessGroup(group);
+                                unpacker.ProcessNestedFiles();
                             }
                         }
 
@@ -80,7 +82,12 @@ namespace RES_PACKER
                     if (!isRootProcessed && fileName.EndsWith("system.res", StringComparison.OrdinalIgnoreCase))
                     {
                         isRootProcessed = true;
-                        UnpackRES.SaveResIndex();
+                        Console.WriteLine("Saving initial indexes before RTBL processing...");
+                        UnpackRES.SaveAllIndexes(); // Save initial RESINDEX.json with .res and .rtbl lists
+                        Console.WriteLine("Processing RTBL files from RESINDEX...");
+                        RTBL.ProcessRTBLFromIndex(outputFolder, dataHelper);
+                        Console.WriteLine("Saving updated indexes after RTBL processing...");
+                        UnpackRES.SaveAllIndexes(); // Save again with updated .res from RTBL
                     }
                 }
             }
@@ -88,6 +95,10 @@ namespace RES_PACKER
             {
                 Console.WriteLine($"Error processing RES file '{fileName}': {ex.Message}");
                 throw;
+            }
+            finally
+            {
+                Console.WriteLine("RES file unpacking completed.");
             }
         }
 
