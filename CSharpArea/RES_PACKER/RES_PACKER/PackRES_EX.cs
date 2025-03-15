@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.Security.Cryptography;
+using System.Linq;
 
 namespace RES_PACKER
 {
@@ -15,8 +16,8 @@ namespace RES_PACKER
         private readonly string tempFile;
         private readonly Dictionary<string, List<(long StartOffset, long EndOffset)>> usedOffsets;
         private readonly Dictionary<(string RdpFile, long OriginalOffset, string ContentHash), long> processedRdpFiles;
-        private readonly string rdpInputRoot;  // Default input location for RDP files (.\)
-        private readonly string rdpOutputRoot; // Output location for RDP files (.\repacked)
+        private readonly string rdpInputRoot;
+        private readonly string rdpOutputRoot;
 
         public PackRES_EX(string inputFile, string outputFolder, Dictionary<string, List<(long StartOffset, long EndOffset)>> sharedOffsets)
         {
@@ -27,9 +28,9 @@ namespace RES_PACKER
             this.tempFile = Path.Combine(outputFolder, $"temp_{Path.GetFileName(inputFile)}");
             this.usedOffsets = sharedOffsets;
             this.processedRdpFiles = new Dictionary<(string, long, string), long>();
-            this.rdpInputRoot = Directory.GetCurrentDirectory(); // Default to .\ for reading original RDP files
-            this.rdpOutputRoot = Path.Combine(rdpInputRoot, "repacked"); // Default to .\repacked for writing
-            Directory.CreateDirectory(rdpOutputRoot); // Ensure repacked folder exists
+            this.rdpInputRoot = Directory.GetCurrentDirectory();
+            this.rdpOutputRoot = Path.Combine(rdpInputRoot, "repacked");
+            Directory.CreateDirectory(rdpOutputRoot);
         }
 
         public void Pack()
@@ -160,8 +161,8 @@ namespace RES_PACKER
                 if (offsetType.StartsWith("RDP"))
                 {
                     string rdpFile = GetRdpFileName(offsetType);
-                    string rdpInputPath = Path.Combine(rdpInputRoot, rdpFile); // Look in .\
-                    string rdpOutputPath = Path.Combine(rdpOutputRoot, rdpFile); // Write to .\repacked
+                    string rdpInputPath = Path.Combine(rdpInputRoot, rdpFile);
+                    string rdpOutputPath = Path.Combine(rdpOutputRoot, rdpFile);
                     long baseOffset = (originalOffset & 0xFFFFFFF) * 0x800;
 
                     if (!File.Exists(rdpInputPath))
@@ -171,7 +172,6 @@ namespace RES_PACKER
                         continue;
                     }
 
-                    // Copy original RDP to repacked folder if not already done
                     if (!File.Exists(rdpOutputPath))
                     {
                         File.Copy(rdpInputPath, rdpOutputPath);
@@ -358,8 +358,8 @@ namespace RES_PACKER
             if (isRdp)
             {
                 string rdpFile = GetRdpFileName(file.OffsetType.ToString());
-                string rdpInputPath = Path.Combine(rdpInputRoot, rdpFile); // Look in .\
-                string rdpOutputPath = Path.Combine(rdpOutputRoot, rdpFile); // Write to .\repacked
+                string rdpInputPath = Path.Combine(rdpInputRoot, rdpFile);
+                string rdpOutputPath = Path.Combine(rdpOutputRoot, rdpFile);
                 long baseOffset = (offset & 0xFFFFFFF) * 0x800;
 
                 if (!File.Exists(rdpInputPath))
@@ -368,7 +368,6 @@ namespace RES_PACKER
                     return;
                 }
 
-                // Copy original RDP to repacked folder if not already done
                 if (!File.Exists(rdpOutputPath))
                 {
                     File.Copy(rdpInputPath, rdpOutputPath);
@@ -451,7 +450,7 @@ namespace RES_PACKER
 
         private long FindNewRdpOffset(string rdpFile, int size, string rdpPath)
         {
-            long offset = 32;
+            const long alignment = 0x800;
             const long maxOffset = 0xFFFFFFF * 2048L;
             long fileSize;
 
@@ -460,39 +459,57 @@ namespace RES_PACKER
                 fileSize = fs.Length;
             }
 
-            while (true)
+            // Precompute free gaps
+            List<(long Start, long End)> gaps = ComputeFreeGaps(rdpFile, fileSize);
+            foreach (var (start, end) in gaps)
             {
-                long alignedOffset = (offset + 0x7FF) & ~0x7FF;
-                long endOffset = alignedOffset + size;
-
-                if (CheckOffsetAvailability(rdpFile, alignedOffset, endOffset))
+                long alignedStart = (start + alignment - 1) & ~(alignment - 1); // Align to 0x800
+                if (alignedStart + size <= end)
                 {
-                    return (alignedOffset / 0x800) | (GetRdpEnumerator(rdpFile) << 28);
-                }
-
-                if (endOffset > fileSize || alignedOffset >= maxOffset)
-                {
-                    long newSize = Math.Max(endOffset, fileSize + 0x100000);
-                    using (var fs = new FileStream(rdpPath, FileMode.Open, FileAccess.Write))
-                    {
-                        if (newSize > fs.Length)
-                        {
-                            fs.SetLength(newSize);
-                            Console.WriteLine($"[Debug] Resized '{rdpPath}' to {newSize} bytes to accommodate new data");
-                        }
-                    }
-                    fileSize = newSize;
-                }
-
-                string filename = Path.GetFileName(rdpPath);
-                Console.WriteLine($"Warning [{filename}]: Attempted writing used offset at 0x{alignedOffset:X}-0x{endOffset:X}. Reassigning to available offsets...");
-                offset += 0x800;
-
-                if (offset >= maxOffset)
-                {
-                    throw new InvalidOperationException($"No available offsets found in '{rdpFile}' after resizing to {fileSize} bytes.");
+                    long newOffset = alignedStart / alignment | (GetRdpEnumerator(rdpFile) << 28);
+                    Console.WriteLine($"[Debug] Found free gap for '{rdpFile}' at 0x{alignedStart:X}-0x{alignedStart + size:X}");
+                    return newOffset;
                 }
             }
+
+            // No suitable gap found, extend the file
+            long newStart = (fileSize + alignment - 1) & ~(alignment - 1); // Align fileSize
+            long newOffsetExtended = newStart / alignment | (GetRdpEnumerator(rdpFile) << 28);
+            if (newStart + size > maxOffset)
+            {
+                throw new InvalidOperationException($"No space left in '{rdpFile}' after resizing to {fileSize} bytes.");
+            }
+
+            Console.WriteLine($"[Debug] No suitable gap found, extending '{rdpPath}' to 0x{newStart + size:X}");
+            return newOffsetExtended;
+        }
+
+        private List<(long Start, long End)> ComputeFreeGaps(string rdpFile, long fileSize)
+        {
+            if (!usedOffsets.ContainsKey(rdpFile) || usedOffsets[rdpFile].Count == 0)
+            {
+                return new List<(long, long)> { (32, fileSize) }; // Entire file is free after header
+            }
+
+            var sortedOffsets = usedOffsets[rdpFile].OrderBy(x => x.StartOffset).ToList();
+            List<(long Start, long End)> gaps = new List<(long, long)>();
+            long currentPos = 32; // Start after typical header
+
+            foreach (var (start, end) in sortedOffsets)
+            {
+                if (currentPos < start)
+                {
+                    gaps.Add((currentPos, start));
+                }
+                currentPos = Math.Max(currentPos, end);
+            }
+
+            if (currentPos < fileSize)
+            {
+                gaps.Add((currentPos, fileSize));
+            }
+
+            return gaps;
         }
 
         private bool CheckOffsetAvailability(string rdpFile, long startOffset, long endOffset)
