@@ -1,0 +1,94 @@
+FOR MULTI LANGUAGE Files (PSVITA) (EN, RU, and more)
+
+
+
+
+### HEADER
+- MAGIC HEADER = ASCII or 0x73657250
+- MAGIC 1, 2, 3 = int32 values 4 bytes each. not needed for the time being or not yet documented well enough
+- Config Length (conf_length) = int32 pointer offset. mostly where the stuff are stored. usually chunks, etc.
+- padding = int64. 8 bytes of nothing but zeroes.
+- Country = int32. there's only two types of countries. value 1 and 6. if country value is equal to 1, then the .res file file has no dataset and is direct.
+			but if the dataset is 6 or not equal to 1, then it has multiple datasets.
+
+Country Types in Order if value is equal to 6
+1. English
+2. French
+3. Italian
+4. Deutsch
+5. Espanol
+6. Russian
+
+#### End of Fixed PRES Header (4+4+4+4+4+8+4) = 32 bytes
+
+
+
+
+### Country Structure, multiple groups (this is skipped if the Country value is not equal to 1 and goes to the datasets directly)
+- DataSet Offset =  int32 offset. pointer information the DataSet information
+- DataSet Size = int32. total size of the structure.
+
+Notes: process these in order based on Country Types
+
+#### End of Country Fixed Structure: (4+4)*6=48 bytes. or `0` if no country structure.
+
+
+
+
+### DataSet for Each Country
+- dataset offset = uint32. Pointer to the first fileset data.
+- dataset count = counter for each dataset. each count represents 32 bytes for Fileset Data separately.
+
+#### End of Country DataSet Structure: (4+4)*8=64 bytes. or `0` if no country structure.
+
+
+
+
+### Fileset Data
+- Offset = A int32 offset pointer where a chunk is stored, though the given offset isn't yet corrected
+	**offset enumerators
+	- 0x4 = RDP Package File (package.rdp)
+	- 0x0 = NoSets. default offset is always 0x00000000
+	- 0x3 = DataSets. default offset is always 0x30000000
+	- 0xC or 0xD = Current File
+--- when converting the offset into a proper/real offset (exclude 0x0 and 0x3). nibble/remove the offset's first value. if it matches with:
+	- Current File (0xC or 0xD): then 30 77 03 C0 or C0037730 becomes 0037730, then thats the real offset
+	- RDP Package File: then B3 3D 14 40 or 40143DB3 becomes 0143DB3, then thats the RDP divided offset but it needs to get multiplied to get the absolute offset. multiplication is by *0x800
+	- Example of multiplication: 00143DB3 * 0x800 = A1ED9800
+
+- Csize = int32 value. usually refers to the size of the chunk that Offset is using.
+- OffsetName = 	an int32 offset pointer. where you can locate the set File Name for that chunk.
+- ChunkName  = 	int32. a value, currently there's only these values: 1, 3, 4, 5 (no value of 2 since it combines with value 3).
+				ChunkName controls the OffsetName's usage of names and other values. check Combination in Name Structure.
+- padding = 12 bytes of nothing.
+- Dsize = a int32 value. refers to the true size of the chunk. but value is not actually use for decompressing.
+
+Notes: 	if Fileset Data have full paddings/zeroes except Dsize. that Fileset is a `dummy` as we can call it.
+		So it cannot be processed and best to be skipped
+
+
+#### End of Fixed Fileset Structure: 4+4+4+4+12+4=32 bytes
+
+
+
+
+### Name Structure (Related to OffsetName)
+- Name: int32 offset pointer. leads you to the name, utf8. stops at null-string (00)
+- Type: int32 offset pointer. leads you to the name's type/format, utf8. stops at null-string (00)
+- ValPath: int32 offset pointer. gives you a path/directory text, utf8. stops at null-string (00)
+- ValSubpath: int32 offset pointer. gives you a path/directory text, utf8. stops at null-string (00). this preferred to be used if ChunkName is 4
+- ValExtraPath: int32 offset pointer. gives you a path/directory text, utf8. stops at null-string (00).
+
+Combination (should only be shown):
+- If ChunkName = 1. it can only use Name.
+- If ChunkName = 3. it can use Name+Type and ValPath as it's directory. but if ValPath shows no result/zeroes. then only display Name+Type
+- if ChunkName = 4. it can use Name+Type and ValSubpath as it's directory (skipping ValPath)
+- if ChunkName = 5. it can use Name+Type, then ValSubpath & ValExtraPath as it's directory (skipping ValPath)
+
+Examples: /extrapath/subpath/name.type || /text/fonts/font.ttf
+Notes: 	Despite these files having these multiple paths, i currently have no idea what's their true purpose or even if they are actually
+		are given directories and such. so i suggest to play around until you find the right recipes.
+
+
+### End of Fixed Name Structure: 4+4+4+4+4 = 20 bytes
+

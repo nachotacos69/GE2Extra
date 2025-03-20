@@ -23,5 +23,4 @@
 
 
 #### Changelog
-- March 8 2025 `->` Added RES_PACKER. prototype of repacking the game files, not finished.
-- March 15 2025 `->` RES_PACKER is stored but not usable
+- March 20, 2025 `->` Updated Documentation: `RES_PSP_STRUCTURE` and added more
