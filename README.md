@@ -23,4 +23,4 @@
 
 
 #### Changelog
-- March 20, 2025 `->` Updated Documentation: `RES_PSP_STRUCTURE` and added more
+- April 4, 2025 `->` Added GEB2CS. basically a reuse of GEBCS to repack and unpack (NOT working for the time being and needs actual calculation on RDP's 0x10 header. and proper checksum stuff) [https://github.com/gil-unx/GEBCS]
