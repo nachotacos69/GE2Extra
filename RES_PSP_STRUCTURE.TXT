@@ -26,7 +26,7 @@ MAGIC/HEADER: int32. Starting point of each RES, ASCII: PRES || MAGIC HEX: 0x736
 Group Offset: int32 pointer. an offset that brings you to Group Datas
 Group Count: byte. total groups.
 Group Version: byte. group version. that's it
-Checksum: uint16/int16?. cannot confirm if this is truly a checksum. since the older version has checksum as well
+Checksum??: uint16/int16?. cannot confirm if this is truly a checksum, might be somekind of important value. since the other versions has this same values as well (especially on system.res)
 Version: int32. version of the RES archive.
 CHUNK_DATA: int32 pointer. offset of all of chunks stored in that area. (compressed datas, audios and more). 
 Sideloading RES Offset (SiloRES_OFF): int32. Seems like this one is for the DLC RES files of the game.
