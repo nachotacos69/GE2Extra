@@ -3,7 +3,6 @@
 - all of these codes are more of a concepts, so there's a bunch of em
 
 
-
 ### Sources:
 
 ~ BLZ2 + BLZ4 Codes by HaoJun: https://github.com/haoJun0823/GECV-OLD/
@@ -21,6 +20,3 @@
 ~ Base Game: (uses `package.rdp, data.rdp, system.res`)
 ~ DLC: (uses `package.rdp, data.rdp, patch.rdp, system_update.res`)
 
-
-#### Changelog
-- April 4, 2025 `->` Added GEB2CS. basically a reuse of GEBCS to repack and unpack (NOT working for the time being and needs actual calculation on RDP's 0x10 header. and proper checksum stuff) [https://github.com/gil-unx/GEBCS]
