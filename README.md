@@ -1,5 +1,8 @@
-# My Silly Script Collection for GOD EATER 2 (PSP and Vita)
-# A bit buggy but what we get is what we get after all
+# ARCHIVED
+ - for preservation and such.
+
+## My Silly Script Collection for GOD EATER 2 (PSP and Vita)
+## A bit buggy but what we get is what we get after all
 - all of these codes are more of a concepts, so there's a bunch of em
 
 
