@@ -1,5 +1,5 @@
 #RES ARCHIVE Documentation (GOD EATER 2 PSP Only)
-~ WRITTEN IN JANUARY 10 2025, || Rewritten IN MARCH 16, 2025
+~ WRITTEN IN JANUARY 10 2025.
 ~ By: Yamato Nagasaki 
 ~ With some help with: gil-unx, SkyBladeCloud, HaoJun/Randerion
 ~ some small support: DarkGD
@@ -53,23 +53,23 @@ Notes: 	Each Fileset Count is related for each Fileset Datas. so 3*32 = 160 byte
 
 ====[FILESETS]====
 ~ GROUP DATAS -> FILESETS
--- Offset: int32 pointer. a offset given value. each offset given has multiple indentations
+-- Offset: int32 pointer. a offset given value. each offset given has multiple indentations or address modes
 	**Indentations
 		- Empty/Noset: if offset read and given is 4 bytes of padding. then that FILESET entry does not have any given of chunk and rather empty
-		- RDP Files: if offset read and given starts with 0x4, 0x5, 0x6. this means that this pointer is not from the current .res file being read and the chunk is somewhere within the RDP files.
-					indicators: 0x4 = package.rdp || 0x5 = data.rdp || 0x6 = patch.rdp
-		- Local_C: if offset read and given starts with 0xC. this means that this pointer is currently inside of the .res file and can be read there.
+		- RDP Files: if offset read and given starts with 0x40, 0x50, 0x60. this means that this pointer is not from the current .res file being read and the chunk is somewhere within the RDP files.
+					indicators: 0x40 = package.rdp || 0x50 = data.rdp || 0x60 = patch.rdp
+		- Local_C: if offset read and given starts with 0xC0. this means that this pointer is currently inside of the .res file and can be read there.
 		- Local_D: same as Local_C but 0xD.
 		
 	** Proper Indentation Reading Examples	
-		- Current: if 0xC0001234 is given to you. skip reading 0xC, and read only 0x0001234. that's the real offset of where the chunk is located.
-		- RDP Files. if 0x40034BEA is given to you. skip reading 0x4 (or other mentions RDP file indentations)
+		- Current: if 0xC0001234 is given to you. skip reading 0xC0, and read only 0x0001234. that's the real offset of where the chunk is located.
+		- RDP Files. if 0x40034BEA is given to you. skip reading 0x40 (or other mentions RDP file indentations)
 		- then only read 0x0034BEA, shift by 11 (<< 11) or multiply by 800 (* 0x800), so 0x0034BEA << 11 or * 0x800 = 0x1A5F5000 is the RDP Offset you need to check 0x4's indicated file (which is package.rdp)
 -- CSIZE: int32. a size value, this defines the chunk size that the Offset uses.
--- NameOffset: int32. a offset TABLE set for that chunk.
--- ChunkName: int32. controller for the TABLE NAME set for that chunk. currently there's only 1, 3, 4, 5 of values.
+-- NameOffset: int32. a offset TABLE NAME set for that chunk.
+-- ChunkName: int32. controller for the TABLE NAME set for that chunk. basically a file name and format.
 -- Padding: 12 bytes of nothing.
--- DSIZE: int32. a decompression size value only if the chunk is compressed. if not, it uses the same value as CSIZE
+-- DSIZE: int32. a decompression size. Defines the true file size when decompresed in game. if not compressed, it uses the same value as CSIZE
 Notes: 	you'll see some filesets are being empty but DSIZE is present so its a dummy fileset. 
 		And some instances filesets have no offset, csize, dsize, but NameOffset and ChunkName is present, then that fileset is a empty file
 
@@ -83,23 +83,14 @@ Notes: 	you'll see some filesets are being empty but DSIZE is present so its a d
 
 
 ====[TABLE NAME]====
-~ FILESETS -> pass NameOffset+ChunkName
--- Name: int32. pointer of where the name is located. utf-8, stop at NULL/0x0.
--- Type: int32. pointer of where the type is located. utf-8, stop at NULL/0x0.
--- Path: int32. pointer of where the directory is given for the name+type or where it should be stored inside. utf-8, stops in two NULL/0x0, sometimes they conflict with other TABLE NAME Structure so be careful when viewing them.
--- SubPath: int32. same as path but subpaths have either `/` or not. pointer of where the subdirectory is given for the name+type or where it should be stored inside. utf-8, stop at NULL/0x0.
--- ExtraPath: int32. same as SubPath's purpose. pointer of where the subdirectory is given. utf-8, stop at NULL/0x0.
-
-Combination (Related to ChunkName):
-
-If ChunkName is value 1: You can only use "Name"
-If ChunkName is value 3: You only use "Name+Type" and "Path", but if "Path" result is zeroes or bad results, it should only be "Name+Type"
-if ChunkName is value 4: You should use "Name+Type", skips path but preferred to use "SubPath.
-if ChunkName is value 5: Still uses "Name+Type", "SubPath, but includes the "ExtraPath".
-Samples: 	/extrapath/subpath/name.type
-			/path/name.type 
-			/fish/values/dialog.txt
-Notes: Sometimes, the combination might be or not be correct, so try to make it up on your end
+-- Name: int32. pointer of the name
+-- Type: int32. pointer of the type of file
+-- Path: on later pointers after the first two. it'll be path/directory values or just zero `\0`
 
 
-#### End FIXED TABLE NAME Structure: 4+4+4+4+4 = 20 bytes
+
+
+#### End FIXED TABLE NAME Structure: 4+4+4+4+4 = 20 bytes max
+- usually not 20 bytes overall in max but to determine the max size of that table name uses. do multiplication on the chunkname.
+- multiply by 4, you get the pointers you need to form the texts that you need.
+- keep in mind that you have to make some guesses on this one either extract the file with a path or not.
