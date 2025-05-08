@@ -1,4 +1,4 @@
-# Only used fpr testing
+# Only used for testing
 - so not all of the tools are 100% accurate at all.
 
 ## My Silly Script Collection for GOD EATER 2 (PSP and Vita)
