@@ -1,5 +1,5 @@
-# ARCHIVED
- - for preservation and such.
+# Only used fpr testing
+- so not all of the tools are 100% accurate at all.
 
 ## My Silly Script Collection for GOD EATER 2 (PSP and Vita)
 ## A bit buggy but what we get is what we get after all
