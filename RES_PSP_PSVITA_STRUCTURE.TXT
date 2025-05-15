@@ -1,0 +1,180 @@
+#RES ARCHIVE Documentation (GOD EATER 2 PSP Only)
+~ WRITTEN IN JANUARY 10 2025.
+~ By: Yamato Nagasaki 
+~ With some help with: gil-unx, SkyBladeCloud, HaoJun/Randerion
+~ some small support: DarkGD
+~ Tool used for my entire operation
+	-HxD
+	-Notepad++
+	-Python
+	-Visual Studio 2017
+	-Calculator (hell yeah)
+	-TR2 Editor (i use both from HaoJun/Randerion and nyirsh) >>>> https://github.com/HaoJun0823/GECV or https://github.com/HaoJun0823/GECV-OLD || https://github.com/nyirsh/GEBUtils
+	-GEBCS (from gil-unx, for reference on the basic RES structure) >>>> https://github.com/gil-unx/GEBCS
+
+
+=============================================================================================================================================
+? Notes: i wrote this for PSP+VITA Version of God Eater 2, and later titles mentioned on the README. just to note myself on what to do
+? if some don't match, you can try to mess around and document it too.
+!! Keep in Mind: PC/PS4, or those with MULTI language RES File is not supported here. will be documented in another time
+
+
+
+====[START]====
+- MAGIC HEADER = ASCII or 0x73657250 (for verification, use HEX for magic verification. which is 0x73657250, ascii is not needed)
+- GroupOffset = offset that brings to DataSet.
+- GroupCount = a byte value. usually just a group counter to define how many groups are in the .res file being used
+- UNK1 = int32 value. not needed for the time being or not yet documented well enough
+- Padding = 3 bytes. just zeroes.
+- Configs = int32 offset. usually where the chunks of data is stored and etc.
+-Sideloading RES Offset (SiloRES_OFF): int32. Seems like this one is for the DLC RES files of the game.
+- Sideloading RES Size (SiloRES_VAL): related to SiloRES_OFF but only mentions the size of that RES file
+- Padding: 4 bytes of padding.
+Notes:	SiloRES_OFF and and SiloRES_VAL are not documented. and will probably be default by zeroes/padding
+
+### End Fixed START Structure: 4+4+1+1+2+4+4+4+4+4 = 32 bytes
+
+
+
+
+### DataSet
+- dataset_offset = uint32. Pointer to the first fileset data.
+- dataset_count = counter for each dataset. each count represents 32 bytes for Fileset Data separately.
+					So you need to properly do indexing when you read filesets from different datasets.
+
+#### End of Fixed DataSet Structure: (4+4)*8=64 bytes. (you can get the value `8` for example based on groupcount)
+Notes: (4+4) combines dataset offset and count, thus performing DataSet groups separately
+			*8 defines the total of groups (based on given groupcount for example but usually the game uses 8 groups).
+			thus 64 bytes in total (seperated by 8 groups).
+
+
+
+
+
+### Fileset Data
+- Offset = A int32 offset pointer where a chunk is stored, though the given offset isn't yet corrected
+	**offset enumerators (address mode) list.
+	- 0x00 = Unknown. usually comes on dummy files, or empty files
+	- 0x30000000 = DataSet. best to ignore these filesets, as it states that these files already exists within `data_` related folders.
+	- 0x40 = Package File (required file: package.rdp)
+	- 0x50 = Data File (required file: package.rdp)
+	- 0x60 = Patch File (required file: patch.rdp)
+	- 0xC0 or 0xD0 = SET_C / SET_D. means that the chunk is currently in the .res file that you are reading.
+	- Masking: 0xYY000000. (YY stands for the list on these enumerators that we need to remove). so it's for the best we nibble the first two bits of these offsets.
+	
+--- when converting the offset into a proper/real offset. We need to nibble/remove the offset's first two bits. if it matches with:
+	- Current File (0xC0 or 0xD0): then 30 77 03 C0 or C0037730 becomes 037730, then thats the real offset as we state it.
+	- RDP Package File: then B3 3D 14 40 or 40143DB3 becomes 143DB3, then thats the RDP divided offset but it needs to get multiplied to get the absolute offset. multiplication is by * 0x800
+	- Example of multiplication: 143DB3 * 0x800 `or L_Shift 11 if you prefer shifting` = 0xA1ED9800.
+
+- Size = int32 value. usually refers to the size of the chunk that Fileset is using.
+- OffsetName = 	an int32 offset pointer. where you can locate the set File Name for that chunk.
+- ChunkName  = 	int32. a value. check `===Reading, Ranging, Acquiring OffsetName and ChunkName`
+- padding = 12 bytes of nothing, not used.
+- UnpackSize = a int32 value. refers to the true size of the chunk. but value is not actually use for decompressing.
+
+Notes: 	if Fileset Data have full paddings/zeroes except UnpackSize. that Fileset is a `dummy` as we can call it.
+		So it cannot be processed and best to be skipped. But if the rest are not present except OffsetName or ChunkName. that's a empty file
+Notes: you don't really need to seek those filesets based on dataset and you can start at 0x60, that's the default fileset start.
+		and use all dataset count and multiply by 32 bytes to get all the fileset you need and know where to stop	
+		(EXAMPLE: 0x60 + [all dataset_count] * 32 bytes = end of fileset range then. within 0x60 and end of fileset range cut all of them by 32 bytes to separate them, starting from 0x60 of course.
+		so you can read each one of them.
+
+#### End of Fixed Fileset Structure: 4+4+4+4+12+4=32 bytes
+
+
+
+
+(samples, just to glimpse you to some information of structure)
+===DataSet Sample
+```
+00 15 00 00 03 00 00 00 E0 14 00 00 01 00 00 00 //DataSet 1: Offset=> 0x1500; Count=> 03; || DataSet: 2 Offset=> 0x14E0; Count=> 1
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 //DataSet 3 & 4: Offset=> 0; Count=> 0 (declared as empty)
+```
+
+
+===FileSet Sample
+```
+DataSet 1: Seek Offset 0x1500, Count 3 multiply by 32 fixed bytes FileSet Structure => 96 bytes (3*32)
+0x1500: 22 D4 01 50 A0 00 00 00 90 34 00 00 03 00 00 00 //Count 1 (fixed 32)
+0x1510: 00 00 00 00 00 00 00 00 00 00 00 00 A0 00 00 00 
+0x1520: 75 75 08 40 A0 00 00 00 C0 34 00 00 03 00 00 00 //Count 2 (fixed 32)
+0x1530: 00 00 00 00 00 00 00 00 00 00 00 00 A0 00 00 00 
+0x1540: 06 00 00 40 A0 66 02 00 E0 34 00 00 03 00 00 00 //Count 3 (fixed 32)
+0x1550: 00 00 00 00 00 00 00 00 00 00 00 00 A0 66 02 00
+```
+
+DataSet 2: Seek Offset 0x14E0, Count 1 multiply by 32 fixed bytes FileSet Structure => 32 bytes (1*32)
+```
+0x14E0: 01 00 00 40 98 11 00 00 70 34 00 00 03 00 00 00 //Count 1 (fixed 32)
+0x14F0: 00 00 00 00 00 00 00 00 00 00 00 00 98 11 00 00
+```
+
+
+===Handling FileSet Structure samples
+
+Sample Structure (for "SET_C/SET_D" File Address Mode):
+```
+A0 EB 0E C0 2E 00 00 00 A0 15 00 00 03 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 2E 00 00 00
+```
+Offset: A0 EB 0E C0 -> 00EEBA0 (eliminate Address Mode value when reading offset)
+Csize: read in int32. this one controls the size of chunk of the fileset uses within the .res file or in other Address Mode.
+OffsetName: A0 15 00 00 (offset int32)
+ChunkName: int32 value
+padding: skip 12 bytes (not to be printed)
+DecSize: int32 value
+```
+
+Sample Structure (for "RDP" Related Address Mode):
+```
+E9 C0 00 50 98 8A 07 00 90 26 00 00 03 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 98 8A 07 00
+```
+Offset: E9 C0 00 50 -> 000C0E9 (eliminate Address Mode value when reading offset) -> 000C0E9 * 0x800 = 0x6074800 -> RDP Offset
+rest of structure reading applies the same as SET_C/SET_D address mode
+
+
+===Reading, Ranging, Acquiring OffsetName and ChunkName
+
+Sample Fileset Structure
+```
+53 5C 03 40 E8 1D 07 00 D0 25 00 00 03 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 E8 1D 07 00
+```
+OffsetName: D0 25 00 00 (0x25D0)
+ChunkName: 3
+
+Seek OffsetName 0x25D0
+```
+0x25D0: DC 25 00 00 F1 25 00 00 F5 25 00 00 67 65 32 5F 
+0x25E0: 62 67 6D 5F 62 74 6C 5F 30 30 33 74 65 6D 70 6C 
+0x25F0: 00 61 74 33 00 00 00 00 00 00 00 00 00 00 00 00
+```
+within OffsetName range. use chunkname value given multiply by 4 (3*4) to find the pointers size range.
+then cut by 4 bytes to separate them. (ex: 3*4=12. cut by 4 to separate pointers/offsets)
+pointers/offsets: `DC 25 00 00 || F1 25 00 00 || F5 25 00 00`
+Each pointers represents of naming the file for that fileset. so, the first two pointers are set for name and type (strings) by default (or name and format by that means, OR name if type isnt present).
+Set to stop at null or `\0`, other pointers after the first two are for directory/path strings. but since this one is null or `\0`. means the fileset has no given directory/path
+
+
+here's one for example with a directory given
+```
+0x15C0: CC 15 00 00 D9 15 00 00 DD 15 00 00 73 79 73 74
+0x15D0: 65 6D 5F 6C 61 74 69 6E 00 70 67 66 00 6A 61 6A
+0x15E0: 70 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+```
+
+usually there's random chances you'll encounter two directory values
+```
+0xE800: 14 E8 00 00 21 E8 00 00 25 E8 00 00 26 E8 00 00 
+0xE810: 2F E8 00 00 63 68 61 72 61 5F 73 68 61 64 6F 77 
+0xE820: 00 67 6D 6F 00 00 56 72 74 43 61 63 68 65 00 50 
+0xE830: 72 69 6D 43 61 63 68 65 00 00 00 00 00 00 00 00
+```
+pointers/offsets: `14 E8 00 00 || 21 E8 00 00 || 25 E8 00 00 || 26 E8 00 00 || 2F E8 00 00`
+later pointers after the first two pointers are for directory/path like i said.
+but in the 3rd and 4th pointer has similarities on offsets but you can do workarounds with it
+
+#### Fixed Max Structure/Pointer Value for naming: 4+4+4+4+4 = 20 bytes.
+

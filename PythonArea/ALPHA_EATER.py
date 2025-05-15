@@ -47,6 +47,7 @@ class DataSet:
 
 class FileSet:
     # The Stuff
+    # Fileset always starts at 0x60 and ends by measuring it based on all datasets counts * 32
     def __init__(self, file_data, datasets, input_file, output_dir, base_output_dir):
         self.filesets = []
         self.input_file = input_file
@@ -57,7 +58,7 @@ class FileSet:
             0x50: 'data.rdp',
             0x60: 'patch.rdp'
         }
-        self.nested_res_files = []  # Store paths of extracted .res files
+        self.nested_res_files = []  # Store paths of extracted .res and .rtbl files
         # Start reading filesets at 0x60
         fileset_start = 0x60
         total_fileset_count = sum(dataset['count'] for dataset in datasets) # gets all dataset counts
@@ -80,12 +81,15 @@ class FileSet:
 
             if address_mode == 0x00:
                 skip_reason = "Unknown address mode (0x00)"
+                
             elif address_mode == 0x30:
                 # skipped, already existing file within those `data_` prefix folders (FOR PSVITA ONLY).
                 skip_reason = "DataSet file (0x30)"
-            elif address_mode in (0xC0, 0xD0):
+                
+            elif address_mode in (0xC0, 0xD0): # i call this SET_C (0xC0) and SET_D (0xD0)
                 # this address_mode is based on the file's current location.
                 real_offset = raw_offset & 0x00FFFFFF 
+                
             elif address_mode in (0x40, 0x50, 0x60):
                 # this address_mode is based on the file's current location within a specific RDP file.
                 temp_offset = raw_offset & 0x00FFFFFF 
@@ -99,7 +103,7 @@ class FileSet:
             name_info = self._read_name_info(file_data, offset_name, chunk_name)
             fileset_data = {
                 'raw_offset': raw_offset,
-                'real_offset': real_offset, # result after trimmed/multiplied
+                'real_offset': real_offset, # results after trimmed and multiplied
                 'size': size,
                 'offset_name': offset_name,
                 'chunk_name': chunk_name,
@@ -143,6 +147,36 @@ class FileSet:
             else:
                 name_info['directories'].append(string)
 
+        return name_info
+
+    def _read_rtbl_name_info(self, file_data, fileset_offset, chunk_name):
+        """Read name and type for .rtbl files, skipping chunk_name pointers."""
+        name_info = {'name': '', 'type': '', 'directories': []}
+        if chunk_name == 0:
+            return name_info
+
+        # Jump 32 bytes from fileset start, then skip chunk_name * 4 bytes
+        name_offset = fileset_offset + 32 + (chunk_name * 4)
+        pos = name_offset
+        string = ''
+        # Read name until null terminator
+        while pos < len(file_data):
+            char = file_data[pos]
+            if char == 0:
+                name_info['name'] = string
+                pos += 1
+                break
+            string += chr(char)
+            pos += 1
+        # Read type until null terminator
+        string = ''
+        while pos < len(file_data):
+            char = file_data[pos]
+            if char == 0:
+                name_info['type'] = string
+                break
+            string += chr(char)
+            pos += 1
         return name_info
 
     def _get_unique_filepath(self, base_path, filename, is_decompressed=False):
@@ -306,7 +340,7 @@ class FileSet:
                         pass
                     output_display_path = os.path.relpath(output_path, start=os.path.dirname(self.base_output_dir))
                     print(f"Extracting: .\\{output_display_path}")
-                    if file_type == 'res':
+                    if file_type in ('res', 'rtbl'):
                         self.nested_res_files.append(output_path)
                 except Exception as e:
                     print(f"Skipping: {display_path} (Extraction error: {str(e)})")
@@ -336,7 +370,7 @@ class FileSet:
                         print(f"Skipping: {display_path} (Chunk size mismatch)")
                         continue
 
-                    # Check for BLZ2/BLZ4 compression
+                    # Check for BLZ2/BLZ4 headers on chunks if it's compressed
                     final_data = chunk_data
                     if size >= 4:
                         header = chunk_data[:4]
@@ -362,8 +396,7 @@ class FileSet:
                     output_display_path = os.path.relpath(output_path, start=os.path.dirname(self.base_output_dir))
                     print(f"Extracting: .\\{output_display_path}")
 
-
-                    if file_type == 'res' or os.path.splitext(output_path)[1].lower() == '.res':
+                    if file_type in ('res', 'rtbl') or os.path.splitext(output_path)[1].lower() in ('.res', '.rtbl'):
                         self.nested_res_files.append(output_path)
 
             except Exception as e:
@@ -371,8 +404,104 @@ class FileSet:
 
         return self.nested_res_files
 
-def parse_res_file(file_path, base_output_dir=None):
+def parse_rtbl_file(file_path, base_output_dir):
+    # Reads RTBL File type
+    # Maps out and gets the correct datas we need
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File {file_path} not found")
 
+    output_dir = os.path.splitext(file_path)[0]
+    
+    with open(file_path, 'rb') as f:
+        file_data = f.read()
+    
+    try:
+        filesets = []
+        offset = 0
+        while offset < len(file_data):
+            # Read 16 bytes to check for non-zero data
+            if offset + 16 > len(file_data):
+                break
+            chunk = file_data[offset:offset+16]
+            if chunk == b'\x00' * 16:
+                offset += 16
+                continue
+            # Need 32 bytes for a fileset
+            if offset + 32 > len(file_data):
+                print(f"Warning: Incomplete fileset at {hex(offset)}")
+                break
+            fileset_data = file_data[offset:offset+32]
+            fileset_struct = struct.unpack('<I I I I 12x I', fileset_data)
+            raw_offset = fileset_struct[0]
+            size = fileset_struct[1]
+            offset_name = fileset_struct[2]
+            chunk_name = fileset_struct[3]
+            unpack_size = fileset_struct[4]
+
+            # Validate fileset (offset_name should be 0x20)
+            if offset_name != 0x20:
+                offset += 16
+                continue
+
+            # Handle offset based on address mode
+            address_mode = (raw_offset & 0xFF000000) >> 24
+            real_offset = None
+            skip_reason = None
+
+            if address_mode == 0x00:
+                skip_reason = "Unknown address mode (0x00)"
+            elif address_mode == 0x30:
+                skip_reason = "DataSet file (0x30)"
+            elif address_mode in (0xC0, 0xD0): 
+                real_offset = raw_offset & 0x00FFFFFF
+            elif address_mode in (0x40, 0x50, 0x60):
+                temp_offset = raw_offset & 0x00FFFFFF
+                real_offset = temp_offset * 0x800
+
+            # Check for dummy fileset
+            if raw_offset == 0 and size == 0 and offset_name == 0 and chunk_name == 0 and unpack_size != 0:
+                skip_reason = "Dummy fileset"
+
+            # Read name and type
+            name_info = FileSet._read_rtbl_name_info(None, file_data, offset, chunk_name)
+            fileset_entry = {
+                'raw_offset': raw_offset,
+                'real_offset': real_offset,
+                'size': size,
+                'offset_name': offset_name,
+                'chunk_name': chunk_name,
+                'unpack_size': unpack_size,
+                'address_mode': address_mode,
+                'name': name_info['name'],
+                'type': name_info['type'],
+                'directories': name_info['directories']
+            }
+
+            filesets.append((fileset_entry, skip_reason))
+            offset += 32
+
+        # Create a FileSet instance to extract files
+        fileset = FileSet.__new__(FileSet)
+        fileset.filesets = filesets
+        fileset.input_file = file_path
+        fileset.output_dir = output_dir
+        fileset.base_output_dir = base_output_dir
+        fileset.rdp_files = {
+            0x40: 'package.rdp',
+            0x50: 'data.rdp',
+            0x60: 'patch.rdp'
+        }
+        fileset.nested_res_files = []
+        nested_res_files = fileset.extract_files()
+
+        # Process nested .res and .rtbl files
+        for nested_file in nested_res_files:
+            parse_res_file(nested_file, base_output_dir)
+
+    except Exception as e:
+        print(f"Error processing {file_path}: {str(e)}")
+
+def parse_res_file(file_path, base_output_dir=None):
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File {file_path} not found")
 
@@ -381,6 +510,11 @@ def parse_res_file(file_path, base_output_dir=None):
     if base_output_dir is None:
         base_output_dir = output_dir
     
+    # Check if it's an .rtbl file
+    if file_path.lower().endswith('.rtbl'):
+        parse_rtbl_file(file_path, base_output_dir)
+        return
+
     with open(file_path, 'rb') as f:
         file_data = f.read()
 
@@ -395,9 +529,9 @@ def parse_res_file(file_path, base_output_dir=None):
         fileset = FileSet(file_data, dataset.datasets, file_path, output_dir, base_output_dir)
         nested_res_files = fileset.extract_files()
 
-        # Process nested .res files
-        for nested_res in nested_res_files:
-            parse_res_file(nested_res, base_output_dir)
+        # Process nested .res and .rtbl files
+        for nested_file in nested_res_files:
+            parse_res_file(nested_file, base_output_dir)
 
     except Exception as e:
         print(f"Error processing {file_path}: {str(e)}")

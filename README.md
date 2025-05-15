@@ -18,3 +18,9 @@
 - GOD EATER 2 RAGE BURST (PCSG00532)
 - GOD EATER OFFSHOT (PCSG00720 ~ PCSG00725)
 
+
+## Files Required
+- package.rdp
+- data.rdp
+- patch.rdp (dlc content)
+- system.res (or the dlc `system_update.res` version)
