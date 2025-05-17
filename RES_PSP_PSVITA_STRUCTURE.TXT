@@ -27,10 +27,11 @@
 - UNK1 = int32 value. not needed for the time being or not yet documented well enough
 - Padding = 3 bytes. just zeroes.
 - Configs = int32 offset. usually where the chunks of data is stored and etc.
--Sideloading RES Offset (SiloRES_OFF): int32. Seems like this one is for the DLC RES files of the game.
-- Sideloading RES Size (SiloRES_VAL): related to SiloRES_OFF but only mentions the size of that RES file
+- Sideload RES Offset (SideRES_OFF): int32, pointer. DLC related. Seems like this one refers to original RES file location of that .res file.
+- Sideload RES Size (SideRES_VAL): int32, value. DLC related. size of that referred original RES file.
 - Padding: 4 bytes of padding.
-Notes:	SiloRES_OFF and and SiloRES_VAL are not documented. and will probably be default by zeroes/padding
+Notes: Sideloading is not present in Base Game. only DLC
+
 
 ### End Fixed START Structure: 4+4+1+1+2+4+4+4+4+4 = 32 bytes
 
