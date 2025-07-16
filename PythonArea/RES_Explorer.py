@@ -6,6 +6,7 @@ import io
 import hashlib
 import shutil
 import traceback
+import collections
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QTreeWidget, QTreeWidgetItem, QFileDialog,
@@ -19,6 +20,30 @@ MAGIC_HEADER = 0x73657250
 BLZ2_HEADER = b'blz2'
 BLZ4_HEADER = b'blz4'
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+class LimitedSizeCache(collections.OrderedDict):
+
+    # A cache with a limited size, using a Least Recently Used (LRU) eviction policy
+    # to prevent memory overload from preloading.
+
+    def __init__(self, max_size=200, *args, **kwargs):
+        self.max_size = max_size
+        super().__init__(*args, **kwargs)
+
+    def __getitem__(self, key):
+        # Move the accessed item to the end to mark it as most recently used.
+        value = super().__getitem__(key)
+        self.move_to_end(key)
+        return value
+
+    def __setitem__(self, key, value):
+        # If the key already exists, move it to the end.
+        if key in self:
+            self.move_to_end(key)
+        super().__setitem__(key, value)
+        # If the cache size exceeds the maximum, remove the oldest item (LRU).
+        if len(self) > self.max_size:
+            self.popitem(last=False)
 
 class ResHeader:
     def __init__(self, file_data):
@@ -357,7 +382,9 @@ class MainWindow(QMainWindow):
         self.file_history = []
         self.current_file_path = None
         self.parsed_data = {}
-        self.data_cache = {}
+        # Use the new LimitedSizeCache to prevent memory overload.
+        # It holds up to 200 decompressed file entries with an LRU policy.
+        self.data_cache = LimitedSizeCache(max_size=200)
         self.preloader_thread = None
         self.data_loader = DataLoader()
         self.data_loader.dataLoaded.connect(self.on_data_loaded)
@@ -471,6 +498,8 @@ class MainWindow(QMainWindow):
             QTreeWidgetItem(file_item, ["Address Mode", f"{fs['address_mode']:#04x}"])
             QTreeWidgetItem(file_item, ["Real Offset", f"{fs['real_offset']:#010x}" if fs['real_offset'] is not None else "N/A"])
             QTreeWidgetItem(file_item, ["Size", str(fs['size'])])
+            QTreeWidgetItem(file_item, ["Offset Name", f"{fs['offset_name']:#04x}"])
+            QTreeWidgetItem(file_item, ["Chunk Name", str(fs['chunk_name'])])
             QTreeWidgetItem(file_item, ["Unpacked Size", str(fs['unpack_size'])])
             QTreeWidgetItem(file_item, ["Compressed", is_compressed_str])
             if fs['skip_reason']:
