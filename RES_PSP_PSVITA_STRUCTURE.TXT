@@ -26,7 +26,7 @@
 - GroupCount = a byte value. usually just a group counter to define how many groups are in the .res file being used
 - UNK1 = int32 value. not needed for the time being or not yet documented well enough
 - Padding = 3 bytes. just zeroes.
-- Configs = int32 offset. usually where the chunks of data is stored and etc.
+- Configs = int32 value. overall size of the information (header to end of the fileset)
 - Sideload RES Offset (SideRES_OFF): int32, pointer. DLC related. Seems like this one refers to original RES file location of that .res file.
 - Sideload RES Size (SideRES_VAL): int32, value. DLC related. size of that referred original RES file.
 - Padding: 4 bytes of padding.
