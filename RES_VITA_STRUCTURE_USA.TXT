@@ -6,7 +6,7 @@ TESTED ON: PCSE00789
 ### HEADER
 - MAGIC HEADER = ASCII or 0x73657250
 - MAGIC 1, 2, 3 = int32 values 4 bytes each. not needed for the time being or not yet documented well enough
-- Config Length (conf_length) = int32 pointer offset. mostly where the stuff are stored. usually chunks, etc.
+- Config Length (conf_length) = int32 value. overall size of the information (header to end of the fileset)
 - padding = int64. 8 bytes of nothing but zeroes.
 - Country = int32. there's only two types of countries. value 1 and 3. if country value is equal to 1, then the .res file file has no dataset and is direct.
 			but if the dataset is 3 or not equal to 1, then it has multiple datasets.
